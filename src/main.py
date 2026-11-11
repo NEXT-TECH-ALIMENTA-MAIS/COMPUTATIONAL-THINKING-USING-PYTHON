@@ -60,7 +60,7 @@ def menu_estabelecimento():
     while True:
 
         print("\n" + "="*20)
-        print(f"     Painel de controle da {nome_empresa}")
+        print(f"     Painel de controle da [nome da empresa]")
         print("="*20)
         print("1 - Ver conta")
         print("2 - Buscar doações")
