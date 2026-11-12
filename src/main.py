@@ -2,6 +2,7 @@ import os
 import time
 from dotenv import load_dotenv
 import oracledb as orcl
+import requests
 
 def conectar_db():
     load_dotenv()
@@ -24,6 +25,57 @@ def conectar_db():
         return False, None, None
     return True, conexao, cursor
 
+def buscar_conta(cursor, cnpj_estab):
+    cursor.execute('SELECT CD_ORGANIZACAO FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab', {'cnpj_estab': cnpj_estab})
+    conta = cursor.fetchone()
+    if conta is None:
+        return -1
+    return conta[0]
+
+def buscar_conta_adm(cursor, cpf):
+    cursor.execute('')
+    conta_adm = cursor.fetchone()
+    if conta_adm is None:
+        return -1
+    return conta_adm[0]
+
+def inserir_conta_estab(cursor, conexao):
+
+        cnpj_estab = int(input("Informe o CNPJ da empresa (apenas números): "))
+        buscar_conta(cursor, cnpj_estab)
+
+        while buscar_conta(cursor, cnpj_estab) != -1:
+            cnpj_estab = int(input(f"O CNPJ {cnpj_estab} já está cadastrado no sistema, tente novamente: "))
+            buscar_conta(cursor, cnpj_estab)
+
+        str_endpoint = f"https://open.cnpja.com/office/{cnpj_estab}"
+        requisicao = requests.get(str_endpoint)
+
+        if requisicao.status_code == 200:
+            dados_org = requisicao.json()
+            nome_estab = dados_org["company"]["name"]
+            print(f"Nome fantasia: {nome_estab}")
+            logr_estab = dados_org["address"]["street"]
+            nro_estab = dados_org["address"]["number"]
+            bairro_estab = dados_org["address"]["district"]
+            cidade_estab = dados_org["address"]["city"]
+            estado_estab = dados_org["address"]["state"]
+            endereco_estab = (f"Endereço do estabelecimento: {logr_estab} {nro_estab}, {bairro_estab} - {cidade_estab}/{estado_estab}")
+        else:
+            print("CNPJ inválido!")
+
+        tipo_org = "Estabelecimento fornecedor"
+        tel_estab = input("Digite o telefone comercial do estabelecimento para contato: ")
+        email_estab = input("Digite o email do estabelecimento: ")
+        senha_estab = input("Crie a senha para o acesso da conta: ")
+
+        str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
+            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_estab}', '{nome_estab}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{senha_estab}')"""
+
+        cursor.execute(str_insert)
+
+        conexao.commit()
+
 def main():
     while True:
         print("\n" + "="*20)
@@ -41,7 +93,10 @@ def main():
 
         match opcao:
             case 1:
-                print("Validar CNPJ e senha inserida e procurar se existe conta no banco")
+                print("Realizar função de validar CNPJ")
+                time.sleep(2)
+                os.system('cls')
+                inserir_conta_estab()
             case 2:
                 print("Validar CNPJ e senha inserida e procurar se existe conta no banco")
             case 3:
