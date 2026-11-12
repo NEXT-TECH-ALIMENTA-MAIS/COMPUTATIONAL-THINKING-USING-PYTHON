@@ -25,8 +25,8 @@ def conectar_db():
         return False, None, None
     return True, conexao, cursor
 
-def buscar_conta(cursor, cnpj_estab):
-    cursor.execute('SELECT CD_ORGANIZACAO FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab', {'cnpj_estab': cnpj_estab})
+def buscar_conta(cursor, cnpj_org):
+    cursor.execute('SELECT CD_ORGANIZACAO FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_org', {'cnpj_org': cnpj_org})
     conta = cursor.fetchone()
     if conta is None:
         return -1
@@ -39,42 +39,81 @@ def buscar_conta_adm(cursor, cpf):
         return -1
     return conta_adm[0]
 
-def inserir_conta_estab(cursor, conexao):
+def inserir_conta_inst(cursor, conexao):
 
-        cnpj_estab = int(input("Informe o CNPJ da empresa (apenas números): "))
-        buscar_conta(cursor, cnpj_estab)
+        cnpj_org = int(input("Informe o CNPJ do instelecimento (apenas números): "))
+        buscar_conta(cursor, cnpj_org)
 
-        while buscar_conta(cursor, cnpj_estab) != -1:
-            cnpj_estab = int(input(f"O CNPJ {cnpj_estab} já está cadastrado no sistema, tente novamente: "))
-            buscar_conta(cursor, cnpj_estab)
+        while buscar_conta(cursor, cnpj_org) != -1:
+            cnpj_org = int(input(f"O CNPJ {cnpj_org} já está cadastrado no sistema, informe outro CNPJ: "))
+            buscar_conta(cursor, cnpj_org)
 
-        str_endpoint = f"https://open.cnpja.com/office/{cnpj_estab}"
+        str_endpoint = f"https://open.cnpja.com/office/{cnpj_org}"
         requisicao = requests.get(str_endpoint)
 
         if requisicao.status_code == 200:
             dados_org = requisicao.json()
-            nome_estab = dados_org["company"]["name"]
-            print(f"Nome fantasia: {nome_estab}")
-            logr_estab = dados_org["address"]["street"]
-            nro_estab = dados_org["address"]["number"]
-            bairro_estab = dados_org["address"]["district"]
-            cidade_estab = dados_org["address"]["city"]
-            estado_estab = dados_org["address"]["state"]
-            endereco_estab = (f"Endereço do estabelecimento: {logr_estab} {nro_estab}, {bairro_estab} - {cidade_estab}/{estado_estab}")
+            nome_inst = dados_org["company"]["name"]
+            print(f"Nome fantasia: {nome_inst}")
+            logr_inst = dados_org["address"]["street"]
+            nro_inst = dados_org["address"]["number"]
+            bairro_inst = dados_org["address"]["district"]
+            cidade_inst = dados_org["address"]["city"]
+            estado_inst = dados_org["address"]["state"]
+            endereco_inst = (f"Endereço do instelecimento: {logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}")
         else:
             print("CNPJ inválido!")
 
-        tipo_org = "Estabelecimento fornecedor"
-        tel_estab = input("Digite o telefone comercial do estabelecimento para contato: ")
-        email_estab = input("Digite o email do estabelecimento: ")
-        senha_estab = input("Crie a senha para o acesso da conta: ")
+        tipo_org = "instelecimento fornecedor"
+        tel_inst = input("Digite o telefone comercial do instelecimento para contato: ")
+        email_inst = input("Digite o email do instelecimento: ")
+        senha_inst = input("Crie a senha para o acesso da conta: ")
 
         str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
-            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_estab}', '{nome_estab}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{senha_estab}')"""
+            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_inst}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{senha_inst}')"""
 
         cursor.execute(str_insert)
 
         conexao.commit()
+
+
+def inserir_conta_inst(cursor, conexao):
+
+        cnpj_org = int(input("Informe o CNPJ da instituição (apenas números): "))
+        buscar_conta(cursor, cnpj_org)
+
+        while buscar_conta(cursor, cnpj_org) != -1:
+            cnpj_org = int(input(f"O CNPJ {cnpj_org} já está cadastrado no sistema, informe outro CNPJ: "))
+            buscar_conta(cursor, cnpj_org)
+
+        str_endpoint = f"https://open.cnpja.com/office/{cnpj_org}"
+        requisicao = requests.get(str_endpoint)
+
+        if requisicao.status_code == 200:
+            dados_org = requisicao.json()
+            nome_inst = dados_org["company"]["name"]
+            print(f"Nome fantasia: {nome_inst}")
+            logr_inst = dados_org["address"]["street"]
+            nro_inst = dados_org["address"]["number"]
+            bairro_inst = dados_org["address"]["district"]
+            cidade_inst = dados_org["address"]["city"]
+            estado_inst = dados_org["address"]["state"]
+            endereco_inst = (f"Endereço do instelecimento: {logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}")
+        else:
+            print("CNPJ inválido!")
+
+        tipo_org = "instituição receptora"
+        tel_inst = input("Digite o telefone comercial da instituição para contato: ")
+        email_inst = input("Digite o email da instituição: ")
+        senha_inst = input("Crie a senha para o acesso da conta: ")
+
+        str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
+            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_inst}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{senha_inst}')"""
+
+        cursor.execute(str_insert)
+
+        conexao.commit()
+
 
 def main():
     while True:
@@ -83,7 +122,7 @@ def main():
         print("="*20)
         print("\n")
         print("Qual o tipo da sua conta? \n")
-        print("1 - Estabelecimento fornecedor")
+        print("1 - instelecimento fornecedor")
         print("2 - Instituição receptora")
         print("3 - Administrador")
         print("4 - Ainda não tem uma conta? Crie uma agora!")
@@ -96,7 +135,6 @@ def main():
                 print("Realizar função de validar CNPJ")
                 time.sleep(2)
                 os.system('cls')
-                inserir_conta_estab()
             case 2:
                 print("Validar CNPJ e senha inserida e procurar se existe conta no banco")
             case 3:
@@ -110,7 +148,7 @@ def main():
                 break
 
 
-def menu_estabelecimento():
+def menu_instelecimento():
 
     while True:
 
