@@ -184,8 +184,28 @@ def main():
                         os.system('cls')
                         menu_inst(cursor, conexao, inst)
                 case 3:
-                    print("CRUD para criar uma nova conta")
+                    print("Entrar com CPF e senha")
                 case 4:
+                    print("Digite o tipo de conta que deseja criar")
+                    print("1 - Conta de estabelecimento fornecedor")
+                    print("2 - Conta de instituição receptora")
+                    print("3 - Conta de administrador")
+                    print("4 - Voltar")
+                    opcao = int(input("Informe a opção: "))
+
+                    if 1 <= opcao <= 4:
+                        if opcao == 1:
+                            inserir_conta_estab(cursor, conexao)
+                        elif opcao == 2:
+                            inserir_conta_inst(cursor, conexao)
+                        elif opcao == 3:
+                            print("Criar função de inserir conta de adm")
+                        elif opcao == 4:
+                            break
+                        else:
+                            print("Opção inválida!")
+
+                case 5:
                     print("Saindo...")
                     time.sleep(2)
                     os.system('cls')
@@ -199,7 +219,7 @@ def menu_estab(cursor, conexao, estab):
     while True:
 
         print("\n" + "="*20)
-        print(f"     Painel de controle da [nome da empresa]")
+        print(f"     Painel de controle da {estab["nm_fantasia"]}")
         print("="*20)
         print("1 - Ver conta")
         print("2 - Buscar doações")
