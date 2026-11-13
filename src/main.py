@@ -39,9 +39,9 @@ def buscar_conta_adm(cursor, cpf):
         return -1
     return conta_adm[0]
 
-def inserir_conta_inst(cursor, conexao):
+def inserir_conta_estab(cursor, conexao):
 
-        cnpj_org = int(input("Informe o CNPJ do instelecimento (apenas números): "))
+        cnpj_org = int(input("Informe o CNPJ do estabelecimento (apenas números): "))
         buscar_conta(cursor, cnpj_org)
 
         while buscar_conta(cursor, cnpj_org) != -1:
@@ -53,28 +53,31 @@ def inserir_conta_inst(cursor, conexao):
 
         if requisicao.status_code == 200:
             dados_org = requisicao.json()
-            nome_inst = dados_org["company"]["name"]
-            print(f"Nome fantasia: {nome_inst}")
-            logr_inst = dados_org["address"]["street"]
-            nro_inst = dados_org["address"]["number"]
-            bairro_inst = dados_org["address"]["district"]
-            cidade_inst = dados_org["address"]["city"]
-            estado_inst = dados_org["address"]["state"]
-            endereco_inst = (f"Endereço do instelecimento: {logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}")
+            nome_estab = dados_org["company"]["name"]
+            print(f"Nome fantasia: {nome_estab}")
+            logr_estab = dados_org["address"]["street"]
+            nro_estab = dados_org["address"]["number"]
+            bairro_estab = dados_org["address"]["district"]
+            cidade_estab = dados_org["address"]["city"]
+            estado_estab = dados_org["address"]["state"]
+            endereco_estab = (f"Endereço do estabelecimento: {logr_estab} {nro_estab}, {bairro_estab} - {cidade_estab}/{estado_estab}")
         else:
             print("CNPJ inválido!")
 
-        tipo_org = "instelecimento fornecedor"
-        tel_inst = input("Digite o telefone comercial do instelecimento para contato: ")
-        email_inst = input("Digite o email do instelecimento: ")
-        senha_inst = input("Crie a senha para o acesso da conta: ")
+        tipo_org = "estabelecimento fornecedor"
+        tel_estab = input("Digite o telefone comercial do estabelecimento para contato: ")
+        email_estab = input("Digite o email do estabelecimento: ")
+        senha_estab = input("Crie a senha para o acesso da conta: ")
 
         str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
-            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_inst}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{senha_inst}')"""
+            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_estab}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{senha_estab}')"""
 
         cursor.execute(str_insert)
 
         conexao.commit()
+
+# def alterar_conta_estab():
+
 
 
 def inserir_conta_inst(cursor, conexao):
@@ -121,12 +124,10 @@ def main():
         print(f"     Acesse sua conta e faça a comida chegar a quem precisa.")
         print("="*20)
         print("\n")
-        print("Qual o tipo da sua conta? \n")
-        print("1 - instelecimento fornecedor")
-        print("2 - Instituição receptora")
-        print("3 - Administrador")
-        print("4 - Ainda não tem uma conta? Crie uma agora!")
-        print("5 - Sair \n")
+        print("1 - Entrar como organização")
+        print("2 - Entrar como administrador")
+        print("3 - Ainda não tem uma conta? Crie uma agora!")
+        print("4 - Sair \n")
 
         opcao = int(input("Digite uma opção para entrar: "))
 
@@ -136,19 +137,17 @@ def main():
                 time.sleep(2)
                 os.system('cls')
             case 2:
-                print("Validar CNPJ e senha inserida e procurar se existe conta no banco")
+                print("Entrar com CPF e senha")
             case 3:
-                print("Validar email e senha inserida e procurar se existe conta no banco")
-            case 4:
                 print("CRUD para criar uma nova conta")
-            case 5:
+            case 4:
                 print("Saindo...")
                 time.sleep(2)
                 os.system('cls')
-                break
+                break                
 
 
-def menu_instelecimento():
+def menu_estabelecimento():
 
     while True:
 
