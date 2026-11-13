@@ -67,10 +67,10 @@ def inserir_conta_estab(cursor, conexao):
         tipo_org = "estabelecimento fornecedor"
         tel_estab = input("Digite o telefone comercial do estabelecimento para contato: ")
         email_estab = input("Digite o email do estabelecimento: ")
-        senha_estab = input("Crie a senha para o acesso da conta: ")
+        senha_org = input("Crie a senha para o acesso da conta: ")
 
         str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
-            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_estab}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{senha_estab}')"""
+            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_estab}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{senha_org}')"""
 
         cursor.execute(str_insert)
 
@@ -108,32 +108,53 @@ def inserir_conta_inst(cursor, conexao):
         tipo_org = "instituição receptora"
         tel_inst = input("Digite o telefone comercial da instituição para contato: ")
         email_inst = input("Digite o email da instituição: ")
-        senha_inst = input("Crie a senha para o acesso da conta: ")
+        senha_org = input("Crie a senha para o acesso da conta: ")
 
         str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
-            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_inst}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{senha_inst}')"""
+            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_inst}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{senha_org}')"""
 
         cursor.execute(str_insert)
 
         conexao.commit()
 
 
+def login_estab(cursor, cnpj_estab, senha_estab):
+
+    cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, DS_SENHA_HASH FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab AND DS_SENHA_HASH = :senha_estab", {"cnpj_estab": cnpj_estab, "senha_estab": senha_estab})
+
+    linha = cursor.fetchone()
+    if linha is None:
+        return None
+    return {"cd_organizacao": linha[0], "nr_cnpj": [1], "nm_fantasia": [2], "ds_endereco": [3], "tp_organizacao": [4], "nr_telefone": [5], "ds_email_contato": [6], "ds_senha_hash": [7]}
+
 def main():
+
+    True, conexao, cursor = conectar_db()
+
     while True:
         print("\n" + "="*20)
         print(f"     Acesse sua conta e faça a comida chegar a quem precisa.")
         print("="*20)
         print("\n")
-        print("1 - Entrar como organização")
-        print("2 - Entrar como administrador")
-        print("3 - Ainda não tem uma conta? Crie uma agora!")
-        print("4 - Sair \n")
+        print("1 - Entrar como estabelecimento")
+        print("2 - Entrar como instituição")
+        print("3 - Entrar como administrador")
+        print("4 - Ainda não tem uma conta? Crie uma agora!")
+        print("5 - Sair \n")
 
         opcao = int(input("Digite uma opção para entrar: "))
 
         match opcao:
             case 1:
-                print("Realizar função de validar CNPJ")
+                cnpj_estab = input("Insira o CNPJ do estabelecimento: ")
+                senha_estab = input("Digite a senha do estabelecimento: ")
+                estab = login_estab(cursor, cnpj_estab, senha_estab)
+
+                if estab is None:
+                    print("CNPJ ou senha incorretos!")
+                else:
+                    menu_estab(cursor, conexao, estab)
+
                 time.sleep(2)
                 os.system('cls')
             case 2:
@@ -147,7 +168,7 @@ def main():
                 break                
 
 
-def menu_estabelecimento():
+def menu_estab(cursor, conexao, estab):
 
     while True:
 
