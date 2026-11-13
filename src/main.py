@@ -127,45 +127,71 @@ def login_estab(cursor, cnpj_estab, senha_estab):
         return None
     return {"cd_organizacao": linha[0], "nr_cnpj": [1], "nm_fantasia": [2], "ds_endereco": [3], "tp_organizacao": [4], "nr_telefone": [5], "ds_email_contato": [6], "ds_senha_hash": [7]}
 
+def login_inst(cursor, cnpj_inst, senha_inst):
+
+    cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, DS_SENHA_HASH FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_inst AND DS_SENHA_HASH = :senha_inst", {"cnpj_inst": cnpj_inst, "senha_inst": senha_inst})
+
+    linha = cursor.fetchone()
+    if linha is None:
+        return None
+    return {"cd_organizacao": linha[0], "nr_cnpj": [1], "nm_fantasia": [2], "ds_endereco": [3], "tp_organizacao": [4], "nr_telefone": [5], "ds_email_contato": [6], "ds_senha_hash": [7]}
+
 def main():
 
-    True, conexao, cursor = conectar_db()
+    conexao_db, conexao, cursor = conectar_db()
 
-    while True:
-        print("\n" + "="*20)
-        print(f"     Acesse sua conta e faça a comida chegar a quem precisa.")
-        print("="*20)
-        print("\n")
-        print("1 - Entrar como estabelecimento")
-        print("2 - Entrar como instituição")
-        print("3 - Entrar como administrador")
-        print("4 - Ainda não tem uma conta? Crie uma agora!")
-        print("5 - Sair \n")
 
-        opcao = int(input("Digite uma opção para entrar: "))
+    if conexao_db is True:
+        while True:
+            print("\n" + "="*20)
+            print(f"     Acesse sua conta e faça a comida chegar a quem precisa.")
+            print("="*20)
+            print("\n")
+            print("1 - Entrar como estabelecimento")
+            print("2 - Entrar como instituição")
+            print("3 - Entrar como administrador")
+            print("4 - Ainda não tem uma conta? Crie uma agora!")
+            print("5 - Sair \n")
 
-        match opcao:
-            case 1:
-                cnpj_estab = input("Insira o CNPJ do estabelecimento: ")
-                senha_estab = input("Digite a senha do estabelecimento: ")
-                estab = login_estab(cursor, cnpj_estab, senha_estab)
+            opcao = int(input("Digite uma opção para entrar: "))
 
-                if estab is None:
-                    print("CNPJ ou senha incorretos!")
-                else:
-                    menu_estab(cursor, conexao, estab)
+            match opcao:
+                case 1:
+                    cnpj_estab = input("Insira o CNPJ do estabelecimento: ")
+                    senha_estab = input("Digite a senha do estabelecimento: ")
+                    estab = login_estab(cursor, cnpj_estab, senha_estab)
 
-                time.sleep(2)
-                os.system('cls')
-            case 2:
-                print("Entrar com CPF e senha")
-            case 3:
-                print("CRUD para criar uma nova conta")
-            case 4:
-                print("Saindo...")
-                time.sleep(2)
-                os.system('cls')
-                break                
+                    if estab is None:
+                        print("CNPJ ou senha incorretos!")
+                        time.sleep(2)
+                        os.system('cls')
+                    else:
+                        print("Entrando...")
+                        time.sleep(2)
+                        os.system('cls')
+                        menu_estab(cursor, conexao, estab)
+                case 2:
+                    cnpj_inst = input("Insira o CNPJ da instituição: ")
+                    senha_inst = input("Digite a senha da instituição: ")
+                    inst = login_inst(cursor, cnpj_inst, senha_inst)
+
+                    if inst is None:
+                        print("CNPJ ou senha incorretos!")
+                        time.sleep(2)
+                        os.system('cls')
+                    else:
+                        time.sleep(2)
+                        os.system('cls')
+                        menu_inst(cursor, conexao, inst)
+                case 3:
+                    print("CRUD para criar uma nova conta")
+                case 4:
+                    print("Saindo...")
+                    time.sleep(2)
+                    os.system('cls')
+                    break   
+    else:
+        print("A conexão com o banco de dados não foi estabelecida!")             
 
 
 def menu_estab(cursor, conexao, estab):
@@ -225,7 +251,9 @@ def menu_estab(cursor, conexao, estab):
                 time.sleep(2)
                 os.system('cls')
 
+def menu_inst(cursor, conexao, inst):
 
+    return print("Menu da Instituição!")
 
 
 
