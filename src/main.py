@@ -98,6 +98,8 @@ def alterar_conta_estab(cursor, conexao, estab):
 
     nv_senha_org = input("Digite uma nova senha: ")
 
+    cursor.execute(f"""UPDATE ALIM_TB_ORGANIZACAO SET NR_TELEFONE = :tel, DS_EMAIL_CONTATO = :email, DS_ENDERECO = :endereco, DS_SENHA_HASH = :senha_org WHERE CD_ORGANIZACAO = :cd, {"tel": nv_tel_estab, "email": nv_email_estab, "endereco": nv_endereco_estab, "senha_org": nv_senha_org, "cd": estab["cd_organizacao"]}""")
+
 
 
 def inserir_conta_inst(cursor, conexao):
