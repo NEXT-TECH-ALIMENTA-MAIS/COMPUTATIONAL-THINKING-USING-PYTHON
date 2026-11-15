@@ -53,30 +53,41 @@ def inserir_conta_estab(cursor, conexao):
 
         if requisicao.status_code == 200:
             dados_org = requisicao.json()
-            nome_estab = dados_org["company"]["name"]
-            print(f"Nome fantasia: {nome_estab}")
+            nm_fantasia_estab = dados_org["alias"]
+            nm_razao_social = dados_org["company"]["name"]
             logr_estab = dados_org["address"]["street"]
             nro_estab = dados_org["address"]["number"]
             bairro_estab = dados_org["address"]["district"]
             cidade_estab = dados_org["address"]["city"]
             estado_estab = dados_org["address"]["state"]
-            endereco_estab = (f"Endereço do estabelecimento: {logr_estab} {nro_estab}, {bairro_estab} - {cidade_estab}/{estado_estab}")
+            endereco_estab = f"Endereço do estabelecimento: {logr_estab} {nro_estab}, {bairro_estab} - {cidade_estab}/{estado_estab}"
+            print(f"Nome empresarial: {nm_razao_social}")
+            print(f"Nome fantasia: {nm_fantasia_estab}")
+            print(f"Endereço: {endereco_estab}")
         else:
             print("CNPJ inválido!")
 
         tipo_org = "estabelecimento fornecedor"
         tel_estab = input("Digite o telefone comercial do estabelecimento para contato: ")
         email_estab = input("Digite o email do estabelecimento: ")
+        nm_login_estab = input("Digite o nome de login do estabelecimento: ")
         senha_org = input("Crie a senha para o acesso da conta: ")
+        st_cadastro_estab = f"Pendente"
+        st_conta_estab = f"Ativa"
+        dt_inativacao = ""
+        motivo_inativacao = ""
+
 
         str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
-            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_estab}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{senha_org}')"""
+            nr_cnpj, nm_fantasia, nm_razao_social, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_login, ds_senha_hash, st_cadastro, st_conta, dt_inativacao, ds_motivo_inativacao) VALUES ('{cnpj_org}', '{nm_fantasia_estab}', '{nm_razao_social}', '{endereco_estab}', '{tipo_org}', '{tel_estab}', '{email_estab}', '{nm_login_estab}', '{senha_org}', '{st_cadastro_estab}', '{st_conta_estab}', '{dt_inativacao}', '{motivo_inativacao}')"""
 
         cursor.execute(str_insert)
 
         conexao.commit()
 
-# def alterar_conta_estab():
+def alterar_conta_estab(cursor, conexao, estab):
+
+    
 
 
 
@@ -94,24 +105,33 @@ def inserir_conta_inst(cursor, conexao):
 
         if requisicao.status_code == 200:
             dados_org = requisicao.json()
-            nome_inst = dados_org["company"]["name"]
-            print(f"Nome fantasia: {nome_inst}")
+            nm_fantasia_inst = dados_org["alias"]
+            nm_razao_social = dados_org["company"]["name"]
             logr_inst = dados_org["address"]["street"]
             nro_inst = dados_org["address"]["number"]
             bairro_inst = dados_org["address"]["district"]
             cidade_inst = dados_org["address"]["city"]
             estado_inst = dados_org["address"]["state"]
-            endereco_inst = (f"Endereço do instelecimento: {logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}")
+            endereco_inst = (f"Endereço da instituição: {logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}")
+            print(f"Nome empresarial: {nm_razao_social}")
+            print(f"Nome fantasia: {nm_fantasia_inst}")
+            print(f"Endereço: {endereco_inst}")
         else:
             print("CNPJ inválido!")
 
         tipo_org = "instituição receptora"
         tel_inst = input("Digite o telefone comercial da instituição para contato: ")
         email_inst = input("Digite o email da instituição: ")
+        nm_login_inst = input("Digite o nome de login da instituição: ")
         senha_org = input("Crie a senha para o acesso da conta: ")
+        st_cadastro_inst = f"Pendente"
+        st_conta_inst = f"Ativa"
+        dt_inativacao = ""
+        motivo_inativacao = ""
+        
 
         str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
-            nr_cnpj, nm_fantasia, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_senha_hash) VALUES ('{cnpj_org}', '{nome_inst}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{senha_org}')"""
+            nr_cnpj, nm_fantasia, nm_razao_social, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_login, ds_senha_hash, st_cadastro, st_conta, dt_inativacao, ds_motivo_inativacao) VALUES ('{cnpj_org}', '{nm_fantasia_inst}', '{nm_razao_social}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{nm_login_inst}', '{senha_org}', '{st_cadastro_inst}', '{st_conta_inst}', '{dt_inativacao}', '{motivo_inativacao}')"""
 
         cursor.execute(str_insert)
 
@@ -120,7 +140,7 @@ def inserir_conta_inst(cursor, conexao):
 
 def login_estab(cursor, cnpj_estab, senha_estab):
 
-    cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, DS_SENHA_HASH FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab AND DS_SENHA_HASH = :senha_estab", {"cnpj_estab": cnpj_estab, "senha_estab": senha_estab})
+    cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, NM_RAZAO_SOCIAL, DS_LOGIN, ST_CADASTRO, ST_CONTA, DT_INATIVACAO, DS_MOTIVO_INATIVACAO, DS_SENHA_HASH, CD_USUARIO_ADMIN FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab AND DS_SENHA_HASH = :senha_estab", {"cnpj_estab": cnpj_estab, "senha_estab": senha_estab})
 
     linha = cursor.fetchone()
     if linha is None:
@@ -129,7 +149,7 @@ def login_estab(cursor, cnpj_estab, senha_estab):
 
 def login_inst(cursor, cnpj_inst, senha_inst):
 
-    cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, DS_SENHA_HASH FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_inst AND DS_SENHA_HASH = :senha_inst", {"cnpj_inst": cnpj_inst, "senha_inst": senha_inst})
+    cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, NM_RAZAO_SOCIAL, DS_LOGIN, ST_CADASTRO, ST_CONTA, DT_INATIVACAO, DS_MOTIVO_INATIVACAO, DS_SENHA_HASH, CD_USUARIO_ADMIN FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_inst AND DS_SENHA_HASH = :senha_inst", {"cnpj_inst": cnpj_inst, "senha_inst": senha_inst})
 
     linha = cursor.fetchone()
     if linha is None:
@@ -221,7 +241,7 @@ def menu_estab(cursor, conexao, estab):
         print("\n" + "="*20)
         print(f"     Painel de controle da {estab["nm_fantasia"]}")
         print("="*20)
-        print("1 - Ver conta")
+        print("1 - Alterar dados cadastrais")
         print("2 - Buscar doações")
         print("3 - Pesquisar instituições")
         print("4 - Visualizar solicitações de instituições")
@@ -234,9 +254,7 @@ def menu_estab(cursor, conexao, estab):
 
         match opcao:
             case 1:
-                print("Função para ver a conta")
-                time.sleep(2)
-                os.system('cls')
+                alterar_conta_estab(cursor, conexao, estab)
             case 2:
                 print("Função para buscar doações")
                 time.sleep(2)
