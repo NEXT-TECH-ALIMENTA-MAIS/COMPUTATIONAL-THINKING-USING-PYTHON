@@ -87,7 +87,16 @@ def inserir_conta_estab(cursor, conexao):
 
 def alterar_conta_estab(cursor, conexao, estab):
 
-    
+    print(f"Telefone de contato: {estab['nr_telefone']}")
+    nv_tel_estab = input("Informe um novo número de telefone para contato: ")
+
+    print(f"Email para contato: {estab['ds_email_contato']}")
+    nv_email_estab = input("Digite o novo email para contato: ")
+
+    print(f"Endereço atual: {estab['ds_endereco']}")
+    nv_endereco_estab = input("Informe o novo endereço do estabelecimento: ")
+
+    nv_senha_org = input("Digite uma nova senha: ")
 
 
 
@@ -145,7 +154,7 @@ def login_estab(cursor, cnpj_estab, senha_estab):
     linha = cursor.fetchone()
     if linha is None:
         return None
-    return {"cd_organizacao": linha[0], "nr_cnpj": [1], "nm_fantasia": [2], "ds_endereco": [3], "tp_organizacao": [4], "nr_telefone": [5], "ds_email_contato": [6], "ds_senha_hash": [7]}
+    return {"cd_organizacao": linha[0], "nr_cnpj": linha[1], "nm_fantasia": linha[2], "ds_endereco": linha[3], "tp_organizacao": linha[4], "nr_telefone": linha[5], "ds_email_contato": linha[6], "ds_senha_hash": linha[7]}
 
 def login_inst(cursor, cnpj_inst, senha_inst):
 
