@@ -154,7 +154,7 @@ def login_estab(cursor, cnpj_estab, senha_estab):
     linha = cursor.fetchone()
     if linha is None:
         return None
-    return {"cd_organizacao": linha[0], "nr_cnpj": linha[1], "nm_fantasia": linha[2], "ds_endereco": linha[3], "tp_organizacao": linha[4], "nr_telefone": linha[5], "ds_email_contato": linha[6], "ds_senha_hash": linha[7]}
+    return {"cd_organizacao": linha[0], "nr_cnpj": linha[1], "nm_fantasia": linha[2], "ds_endereco": linha[3], "tp_organizacao": linha[4], "nr_telefone": linha[5], "ds_email_contato": linha[6], "nm_razao_social": linha[7], "ds_login": linha[8], "st_cadastro": linha[9], "st_conta": linha[10], "dt_inativacao": linha[11], "ds_motivo_inativacao": linha[12], "ds_senha_hash": linha[13]}
 
 def login_inst(cursor, cnpj_inst, senha_inst):
 
@@ -163,7 +163,7 @@ def login_inst(cursor, cnpj_inst, senha_inst):
     linha = cursor.fetchone()
     if linha is None:
         return None
-    return {"cd_organizacao": linha[0], "nr_cnpj": [1], "nm_fantasia": [2], "ds_endereco": [3], "tp_organizacao": [4], "nr_telefone": [5], "ds_email_contato": [6], "ds_senha_hash": [7]}
+    return {"cd_organizacao": linha[0], "nr_cnpj": linha[1], "nm_fantasia": linha[2], "ds_endereco": linha[3], "tp_organizacao": linha[4], "nr_telefone": linha[5], "ds_email_contato": linha[6], "nm_razao_social": linha[7], "ds_login": linha[8], "st_cadastro": linha[9], "st_conta": linha[10], "dt_inativacao": linha[11], "ds_motivo_inativacao": linha[12], "ds_senha_hash": linha[13]}
 
 def main():
 
