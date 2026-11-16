@@ -168,6 +168,42 @@ def inserir_conta_inst(cursor, conexao):
         conexao.commit()
 
 
+def alterar_conta_inst(cursor, conexao, inst):
+
+    print(f"Telefone de contato: {inst['nr_telefone']}")
+    nv_tel_inst = input("Informe um novo número de telefone para contato: ")
+
+    print(f"Email para contato: {inst['ds_email_contato']}")
+    nv_email_inst = input("Digite o novo email para contato: ")
+
+    print(f"Endereço atual: {inst['ds_endereco']}")
+    nv_endereco_inst = input("Informe o novo endereço da instituição: ")
+
+    nv_senha_org = input("Digite uma nova senha: ")
+
+    if nv_tel_inst or nv_email_inst or nv_endereco_inst or nv_senha_org != "":
+
+        try:
+
+            cursor.execute(f"""UPDATE ALIM_TB_ORGANIZACAO SET NR_TELEFONE = :tel, DS_EMAIL_CONTATO = :email, DS_ENDERECO = :endereco, DS_SENHA_HASH = :senha_org WHERE CD_ORGANIZACAO = :cd, {"tel": nv_tel_inst, "email": nv_email_inst, "endereco": nv_endereco_inst, "senha_org": nv_senha_org, "cd": inst["cd_organizacao"]}""")
+
+            if cursor.rowcount == 0:
+                conexao.rollback()
+                print("Nenhuma linha foi alterada!")
+            else:
+                conexao.commit()
+                inst['nr_telefone'] = nv_tel_inst
+                inst['ds_email_contato'] = nv_email_inst
+                inst['ds_endereco'] = nv_endereco_inst
+                inst['ds_senha_hash'] = nv_senha_org
+
+                print("Alterações salvas com sucesso!")
+
+        except orcl.Error:
+            conexao.rollback()
+            print("Não foi possivel realizar as alterações. Tente novamente!")
+
+
 def login_estab(cursor, cnpj_estab, senha_estab):
 
     cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, NM_RAZAO_SOCIAL, DS_LOGIN, ST_CADASTRO, ST_CONTA, DT_INATIVACAO, DS_MOTIVO_INATIVACAO, DS_SENHA_HASH, CD_USUARIO_ADMIN FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab AND DS_SENHA_HASH = :senha_estab", {"cnpj_estab": cnpj_estab, "senha_estab": senha_estab})
