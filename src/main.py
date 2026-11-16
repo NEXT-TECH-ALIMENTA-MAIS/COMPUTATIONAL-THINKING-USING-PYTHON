@@ -204,6 +204,89 @@ def alterar_conta_inst(cursor, conexao, inst):
             print("Não foi possivel realizar as alterações. Tente novamente!")
 
 
+def inserir_conta_adm(cursor, conexao):
+
+        cnpj_org = int(input("Informe o CNPJ da instituição (apenas números): "))
+        buscar_conta(cursor, cnpj_org)
+
+        while buscar_conta(cursor, cnpj_org) != -1:
+            cnpj_org = int(input(f"O CNPJ {cnpj_org} já está cadastrado no sistema, informe outro CNPJ: "))
+            buscar_conta(cursor, cnpj_org)
+
+        str_endpoint = f"https://open.cnpja.com/office/{cnpj_org}"
+        requisicao = requests.get(str_endpoint)
+
+        if requisicao.status_code == 200:
+            dados_org = requisicao.json()
+            nm_fantasia_inst = dados_org["alias"]
+            nm_razao_social = dados_org["company"]["name"]
+            logr_inst = dados_org["address"]["street"]
+            nro_inst = dados_org["address"]["number"]
+            bairro_inst = dados_org["address"]["district"]
+            cidade_inst = dados_org["address"]["city"]
+            estado_inst = dados_org["address"]["state"]
+            endereco_inst = (f"Endereço da instituição: {logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}")
+            print(f"Nome empresarial: {nm_razao_social}")
+            print(f"Nome fantasia: {nm_fantasia_inst}")
+            print(f"Endereço: {endereco_inst}")
+        else:
+            print("CNPJ inválido!")
+
+        tipo_org = "instituição receptora"
+        tel_inst = input("Digite o telefone comercial da instituição para contato: ")
+        email_inst = input("Digite o email da instituição: ")
+        nm_login_inst = input("Digite o nome de login da instituição: ")
+        senha_org = input("Crie a senha para o acesso da conta: ")
+        st_cadastro_inst = f"Pendente"
+        st_conta_inst = f"Ativa"
+        dt_inativacao = ""
+        motivo_inativacao = ""
+        
+
+        str_insert = f""" INSERT INTO ALIM_TB_ORGANIZACAO (
+            nr_cnpj, nm_fantasia, nm_razao_social, ds_endereco, tp_organizacao, nr_telefone, ds_email_contato, ds_login, ds_senha_hash, st_cadastro, st_conta, dt_inativacao, ds_motivo_inativacao) VALUES ('{cnpj_org}', '{nm_fantasia_inst}', '{nm_razao_social}', '{endereco_inst}', '{tipo_org}', '{tel_inst}', '{email_inst}', '{nm_login_inst}', '{senha_org}', '{st_cadastro_inst}', '{st_conta_inst}', '{dt_inativacao}', '{motivo_inativacao}')"""
+
+        cursor.execute(str_insert)
+
+        conexao.commit()
+
+
+def alterar_conta_inst(cursor, conexao, inst):
+
+    print(f"Telefone de contato: {inst['nr_telefone']}")
+    nv_tel_inst = input("Informe um novo número de telefone para contato: ")
+
+    print(f"Email para contato: {inst['ds_email_contato']}")
+    nv_email_inst = input("Digite o novo email para contato: ")
+
+    print(f"Endereço atual: {inst['ds_endereco']}")
+    nv_endereco_inst = input("Informe o novo endereço da instituição: ")
+
+    nv_senha_org = input("Digite uma nova senha: ")
+
+    if nv_tel_inst or nv_email_inst or nv_endereco_inst or nv_senha_org != "":
+
+        try:
+
+            cursor.execute(f"""UPDATE ALIM_TB_ORGANIZACAO SET NR_TELEFONE = :tel, DS_EMAIL_CONTATO = :email, DS_ENDERECO = :endereco, DS_SENHA_HASH = :senha_org WHERE CD_ORGANIZACAO = :cd, {"tel": nv_tel_inst, "email": nv_email_inst, "endereco": nv_endereco_inst, "senha_org": nv_senha_org, "cd": inst["cd_organizacao"]}""")
+
+            if cursor.rowcount == 0:
+                conexao.rollback()
+                print("Nenhuma linha foi alterada!")
+            else:
+                conexao.commit()
+                inst['nr_telefone'] = nv_tel_inst
+                inst['ds_email_contato'] = nv_email_inst
+                inst['ds_endereco'] = nv_endereco_inst
+                inst['ds_senha_hash'] = nv_senha_org
+
+                print("Alterações salvas com sucesso!")
+
+        except orcl.Error:
+            conexao.rollback()
+            print("Não foi possivel realizar as alterações. Tente novamente!")
+
+
 def login_estab(cursor, cnpj_estab, senha_estab):
 
     cursor.execute("SELECT CD_ORGANIZACAO, NR_CNPJ, NM_FANTASIA, DS_ENDERECO, TP_ORGANIZACAO, NR_TELEFONE, DS_EMAIL_CONTATO, NM_RAZAO_SOCIAL, DS_LOGIN, ST_CADASTRO, ST_CONTA, DT_INATIVACAO, DS_MOTIVO_INATIVACAO, DS_SENHA_HASH, CD_USUARIO_ADMIN FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_estab AND DS_SENHA_HASH = :senha_estab", {"cnpj_estab": cnpj_estab, "senha_estab": senha_estab})
