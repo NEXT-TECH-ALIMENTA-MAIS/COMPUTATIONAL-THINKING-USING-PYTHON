@@ -322,7 +322,7 @@ def alterar_conta_inst(cursor, conexao, inst):
 
 def buscar_publi_estab(cursor, estab):
 
-    cursor.execute("""SELECT CD_PUBLICACAO, NM_TITULO, DS_DESCRICAO, DT_PUBLICACAO, ST_PUBLICACAO, DS_MOTIVO_FINALIZACAO FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :cd ORDER BY DT_PUBLICACAO DESC""", {"cd": estab["cd_organizacao"]})
+    cursor.execute("""SELECT CD_PUBLICACAO, NM_TITULO, DS_DESCRICAO, DT_PUBLICACAO, ST_PUBLICACAO FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :cd ORDER BY DT_PUBLICACAO DESC""", {"cd": estab["cd_organizacao"]})
 
     publicacoes = cursor.fetchall()
     if not publicacoes:
@@ -342,6 +342,28 @@ def buscar_publi_estab(cursor, estab):
     print("=" * 30)
 
     return publicacoes
+
+def ver_instituicoes(cursor):
+
+    cursor.execute("""SELECT NM_FANTASIA, NR_CNPJ, DS_EMAIL_CONTATO, NR_TELEFONE, DS_ENDERECO FROM ALIM_TB_ORGANIZACAO WHERE TP_ORGANIZACAO = 'INSTITUICAO' """)
+    instituicoes = cursor.fetchall()
+    if not instituicoes:
+        print("\n" "Nenhuma instituição encontrada!")
+        return
+
+    print("=== INSTITUIÇÕES ===")
+
+    for instituicao in instituicoes:
+        print("=" * 30)
+        print(f"Nome: {instituicao[0]}")
+        print(f"CNPJ: {instituicao[1]}")
+        print(f"Email: {instituicao[2]}")
+        print(f"Telefone: {instituicao[3]}")
+        print(f"Endereço: {instituicao[4]}")
+
+    print("=" * 30)
+
+    return instituicoes
 
 
 def login_adm(cursor, email, senha):
@@ -548,9 +570,10 @@ def menu_estab(cursor, conexao, estab):
                 time.sleep(2)
                 os.system("cls")
             case 3:
-                print("Função para pesquisar por instituições receptoras")
-                time.sleep(2)
-                os.system("cls")
+                print("\n" "Buscando instituições...")
+                time.sleep(5)
+                os.system('cls')
+                ver_instituicoes(cursor)
             case 4:
                 print("Função para visualizar as solicitações das instituições")
                 time.sleep(2)
