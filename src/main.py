@@ -320,6 +320,30 @@ def alterar_conta_inst(cursor, conexao, inst):
         print("Não foi possivel realizar as alterações. Tente novamente!")
 
 
+def buscar_publi_estab(cursor, estab):
+
+    cursor.execute("""SELECT CD_PUBLICACAO, NM_TITULO, DS_DESCRICAO, DT_PUBLICACAO, ST_PUBLICACAO, DS_MOTIVO_FINALIZACAO FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :cd ORDER BY DT_PUBLICACAO DESC""", {"cd": estab["cd_organizacao"]})
+
+    publicacoes = cursor.fetchall()
+    if not publicacoes:
+        print("\n" "Nenhuma publicação realizada!")
+        return
+
+    print("=== PUBLICAÇÕES ===")
+
+    for publicacao in publicacoes:
+        print("=" * 30)
+        print(f"Código: {publicacao[0]}")
+        print(f"Título: {publicacao[1]}")
+        print(f"Descrição: {publicacao[2]}")
+        print(f"Data: {publicacao[3]}")
+        print(f"Status: {publicacao[4]}")
+
+    print("=" * 30)
+
+    return publicacoes
+
+
 def login_adm(cursor, email, senha):
 
     cursor.execute(
@@ -506,7 +530,7 @@ def menu_estab(cursor, conexao, estab):
         print(f"     Painel de controle da {estab['nm_fantasia']}")
         print("=" * 20)
         print("1 - Alterar dados cadastrais")
-        print("2 - Buscar doações")
+        print("2 - Visualizar minhas doações")
         print("3 - Pesquisar instituições")
         print("4 - Visualizar solicitações de instituições")
         print("5 - Ver publicações de necessidades")
@@ -520,7 +544,7 @@ def menu_estab(cursor, conexao, estab):
             case 1:
                 alterar_conta_estab(cursor, conexao, estab)
             case 2:
-                print("Função para buscar doações")
+                buscar_publi_estab(cursor, estab)
                 time.sleep(2)
                 os.system("cls")
             case 3:
