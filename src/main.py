@@ -918,9 +918,9 @@ def analisar_cad_pendentes(cursor, conexao):
     cad_pendentes = cursor.fetchall()
 
     if not cad_pendentes:
-        print("\n""Não há cadastros pendentes!")
-        input("\n""Pressione Enter para voltar: ")
-        os.system('cls')
+        print("\n" "Não há cadastros pendentes!")
+        input("\n" "Pressione Enter para voltar: ")
+        os.system("cls")
         return
 
     print("=== CADASTROS PENDENTES ===")
@@ -1011,6 +1011,110 @@ def analisar_cad_pendentes(cursor, conexao):
 
         else:
             print("Opção inválida!")
+
+
+def listar_organizacoes(cursor):
+
+    print("\n=== LISTAR ORGANIZAÇÕES ===")
+    print("1 - Todas as organizações")
+    print("2 - Filtrar por tipo")
+    print("3 - Filtrar por situação do cadastro")
+
+    opcao = ler_opcao("Escolha uma opção: ")
+    os.system('cls')
+
+    if opcao == 1:
+
+        cursor.execute("""
+            SELECT CD_ORGANIZACAO, NM_FANTASIA, NR_CNPJ,
+                   TP_ORGANIZACAO, ST_CADASTRO, ST_CONTA
+            FROM ALIM_TB_ORGANIZACAO
+            ORDER BY NM_FANTASIA
+        """)
+
+    elif opcao == 2:
+
+        print("\n1 - Estabelecimento")
+        print("2 - Instituição")
+
+        tipo = ler_opcao("Escolha o tipo: ")
+
+        if tipo == 1:
+            tipo_org = "ESTABELECIMENTO"
+        elif tipo == 2:
+            tipo_org = "INSTITUICAO"
+        else:
+            print("Opção inválida!")
+            return
+
+        cursor.execute(
+            """
+            SELECT CD_ORGANIZACAO, NM_FANTASIA, NR_CNPJ,
+                   TP_ORGANIZACAO, ST_CADASTRO, ST_CONTA
+            FROM ALIM_TB_ORGANIZACAO
+            WHERE TP_ORGANIZACAO = :tipo
+            ORDER BY NM_FANTASIA
+        """,
+            {"tipo": tipo_org},
+        )
+
+    elif opcao == 3:
+
+        print("\n1 - Pendente")
+        print("2 - Aprovado")
+        print("3 - Reprovado")
+
+        situacao = ler_opcao("Escolha a situação: ")
+
+        if situacao == 1:
+            st_cadastro = "PENDENTE"
+        elif situacao == 2:
+            st_cadastro = "APROVADO"
+        elif situacao == 3:
+            st_cadastro = "REPROVADO"
+        else:
+            print("Opção inválida!")
+            return
+
+        cursor.execute(
+            """
+            SELECT CD_ORGANIZACAO, NM_FANTASIA, NR_CNPJ,
+                   TP_ORGANIZACAO, ST_CADASTRO, ST_CONTA
+            FROM ALIM_TB_ORGANIZACAO
+            WHERE ST_CADASTRO = :situacao
+            ORDER BY NM_FANTASIA
+        """,
+            {"situacao": st_cadastro},
+        )
+
+    else:
+        print("Opção inválida!")
+        return
+
+    organizacoes = cursor.fetchall()
+
+    if not organizacoes:
+        os.system('cls')
+        print("\nNenhuma organização encontrada!")
+        input("Pressione Enter para voltar: ")
+        os.system('cls')
+        return
+
+    os.system('cls')
+    print("\n=== ORGANIZAÇÕES ENCONTRADAS ===")
+
+    for organizacao in organizacoes:
+
+        print("=" * 30)
+        print(f"Código: {organizacao[0]}")
+        print(f"Nome: {organizacao[1]}")
+        print(f"CNPJ: {organizacao[2]}")
+        print(f"Tipo: {organizacao[3]}")
+        print(f"Situação do cadastro: {organizacao[4]}")
+        print(f"Situação da conta: {organizacao[5]}")
+
+    print("=" * 30)
+    print("\n"f"Total de organizações encontradas: {len(organizacoes)}")
 
 
 def login_adm(cursor, email, senha):
@@ -1300,9 +1404,10 @@ def menu_adm(cursor, conexao, adm):
                 os.system("cls")
                 analisar_cad_pendentes(cursor, conexao)
             case 2:
-                buscar_publi_estab(cursor, estab)
-                input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
+                listar_organizacoes(cursor)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system('cls')
             case 3:
                 print("\n" "Buscando instituições...")
                 time.sleep(3)
