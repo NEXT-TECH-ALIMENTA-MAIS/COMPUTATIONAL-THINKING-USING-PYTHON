@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 from dotenv import load_dotenv
 import oracledb as orcl
 import requests
@@ -366,6 +367,521 @@ def ver_instituicoes(cursor):
     return instituicoes
 
 
+def ver_solicitacoes_estab(cursor, estab):
+
+    # Solicitações que as instituições fizeram nas ofertas deste estabelecimento
+    cursor.execute(
+        "SELECT S.CD_SOLICITACAO, O.NM_FANTASIA, P.NM_TITULO, S.DT_SOLICITACAO, S.ST_SOLICITACAO "
+        "FROM ALIM_TB_SOLICITACAO S "
+        "JOIN ALIM_TB_PUBLICACAO P ON P.CD_PUBLICACAO = S.CD_OFERTA "
+        "JOIN ALIM_TB_ORGANIZACAO O ON O.CD_ORGANIZACAO = S.CD_INSTITUICAO "
+        "WHERE P.CD_ORGANIZACAO = :cd ORDER BY S.DT_SOLICITACAO DESC",
+        {"cd": estab["cd_organizacao"]},
+    )
+
+    solicitacoes = cursor.fetchall()
+    if not solicitacoes:
+        print("\n" "Nenhuma solicitação recebida!")
+        return
+
+    print("=== SOLICITAÇÕES RECEBIDAS ===")
+
+    for solicitacao in solicitacoes:
+        print("=" * 30)
+        print(f"Código da solicitação: {solicitacao[0]}")
+        print(f"Instituição: {solicitacao[1]}")
+        print(f"Oferta: {solicitacao[2]}")
+        print(f"Data: {solicitacao[3].strftime('%d/%m/%Y')}")
+        print(f"Status: {solicitacao[4]}")
+
+        # Alimentos pedidos nesta solicitação
+        cursor.execute(
+            "SELECT A.NM_ALIMENTO, I.QT_SOLICITADA_KG, I.QT_ALOCADA_KG "
+            "FROM ALIM_TB_ITEM_SOLICITACAO I "
+            "JOIN ALIM_TB_ITEM_OFERTA IO ON IO.CD_ITEM_OFERTA = I.CD_ITEM_OFERTA "
+            "JOIN ALIM_TB_ALIMENTO A ON A.CD_ALIMENTO = IO.CD_ALIMENTO "
+            "WHERE I.CD_SOLICITACAO = :cd",
+            {"cd": solicitacao[0]},
+        )
+        itens = cursor.fetchall()
+        for item in itens:
+            print(f"  - {item[0]}: pedido {item[1]} kg / reservado {item[2]} kg")
+
+    print("=" * 30)
+
+    return solicitacoes
+
+
+def responder_solicitacao(cursor, conexao, estab):
+
+    cd_solicitacao = ler_opcao(
+        "\nDigite o código da solicitação que deseja responder (0 para voltar): "
+    )
+    if cd_solicitacao == 0:
+        return
+
+    try:
+        cursor.execute(
+            "SELECT S.ST_SOLICITACAO, S.CD_OFERTA, S.CD_INSTITUICAO, P.ST_PUBLICACAO "
+            "FROM ALIM_TB_SOLICITACAO S "
+            "JOIN ALIM_TB_PUBLICACAO P ON P.CD_PUBLICACAO = S.CD_OFERTA "
+            "WHERE S.CD_SOLICITACAO = :cd AND P.CD_ORGANIZACAO = :org",
+            {"cd": cd_solicitacao, "org": estab["cd_organizacao"]},
+        )
+        solicitacao = cursor.fetchone()
+
+        if solicitacao is None:
+            print("Solicitação não encontrada!")
+        elif solicitacao[0] != "PENDENTE":
+            print("Só é possível responder solicitações com status PENDENTE!")
+        else:
+            print("\n1 - Aceitar")
+            print("2 - Recusar")
+            print("3 - Voltar")
+            resposta = ler_opcao("Escolha uma opção: ")
+
+            if resposta == 1:
+                if solicitacao[3] == "FINALIZADO":
+                    # RN42: oferta finalizada não recebe novas solicitações
+                    print("Esta oferta já foi finalizada. Só é possível recusar a solicitação.")
+                else:
+                    aceitar_solicitacao(
+                        cursor, conexao, cd_solicitacao, solicitacao[1], solicitacao[2]
+                    )
+            elif resposta == 2:
+                recusar_solicitacao(cursor, conexao, cd_solicitacao)
+            elif resposta != 3:
+                print("Opção inválida!")
+
+    except orcl.Error as erro:
+        conexao.rollback()
+        print("Não foi possível responder a solicitação. Tente novamente!")
+        print(f"(Detalhe técnico: {erro})")
+
+
+def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituicao):
+
+    try:
+        # Alimentos pedidos nesta solicitação
+        cursor.execute(
+            "SELECT I.CD_ITEM_SOLICITACAO, I.CD_ITEM_OFERTA, A.NM_ALIMENTO, I.QT_SOLICITADA_KG, IO.QT_OFERTADA_KG "
+            "FROM ALIM_TB_ITEM_SOLICITACAO I "
+            "JOIN ALIM_TB_ITEM_OFERTA IO ON IO.CD_ITEM_OFERTA = I.CD_ITEM_OFERTA "
+            "JOIN ALIM_TB_ALIMENTO A ON A.CD_ALIMENTO = IO.CD_ALIMENTO "
+            "WHERE I.CD_SOLICITACAO = :cd",
+            {"cd": cd_solicitacao},
+        )
+        itens = cursor.fetchall()
+        if not itens:
+            print("Esta solicitação não tem alimentos pedidos.")
+            return
+
+        print("\n=== RESERVA DE QUANTIDADE ===")
+        reservas = []
+        total_reservado = 0
+
+        for item in itens:
+            # RN31: a soma reservada não pode passar do saldo do alimento.
+            # Saldo livre = quantidade ofertada - o que já está reservado (ou entregue) em outras solicitações
+            cursor.execute(
+                "SELECT NVL(SUM(X.QT_ALOCADA_KG), 0) "
+                "FROM ALIM_TB_ITEM_SOLICITACAO X "
+                "JOIN ALIM_TB_SOLICITACAO S ON S.CD_SOLICITACAO = X.CD_SOLICITACAO "
+                "WHERE X.CD_ITEM_OFERTA = :item AND X.CD_SOLICITACAO <> :sol "
+                "AND S.ST_SOLICITACAO IN ('EM_ANDAMENTO', 'CONCLUIDA', 'CONCLUIDA_PARCIAL')",
+                {"item": item[1], "sol": cd_solicitacao},
+            )
+            ja_comprometido = float(cursor.fetchone()[0])
+            saldo_livre = round(float(item[4]) - ja_comprometido, 3)
+
+            # Não pode reservar mais do que foi pedido nem mais do que o saldo livre
+            limite = round(min(float(item[3]), saldo_livre), 3)
+            if limite < 0:
+                limite = 0
+
+            print(f"\n{item[2]}: pedido {item[3]} kg | saldo livre {saldo_livre} kg")
+            quantidade = -1
+            while quantidade < 0 or quantidade > limite:
+                try:
+                    quantidade = float(
+                        input(f"Quanto deseja reservar? (de 0 até {limite} kg): ").replace(",", ".")
+                    )
+                except ValueError:
+                    quantidade = -1
+                if quantidade < 0 or quantidade > limite:
+                    print(f"Digite um valor entre 0 e {limite}.")
+
+            reservas.append({"cd_item_solicitacao": item[0], "quantidade": quantidade})
+            total_reservado += quantidade
+
+        if total_reservado == 0:
+            print("\nNenhuma quantidade foi reservada. Se não puder atender, use a opção de recusar.")
+            return
+
+        confirmar = ler_opcao(
+            f"\nConfirmar a reserva de {round(total_reservado, 3)} kg no total? (1 - Sim / 2 - Não): "
+        )
+        if confirmar != 1:
+            print("Solicitação não aceita.")
+            return
+
+        for reserva in reservas:
+            cursor.execute(
+                "UPDATE ALIM_TB_ITEM_SOLICITACAO SET QT_ALOCADA_KG = :qtd "
+                "WHERE CD_ITEM_SOLICITACAO = :cd",
+                {"qtd": reserva["quantidade"], "cd": reserva["cd_item_solicitacao"]},
+            )
+
+        cursor.execute(
+            "UPDATE ALIM_TB_SOLICITACAO SET ST_SOLICITACAO = 'EM_ANDAMENTO' "
+            "WHERE CD_SOLICITACAO = :cd AND ST_SOLICITACAO = 'PENDENTE'",
+            {"cd": cd_solicitacao},
+        )
+
+        # RN28: a oferta passa a mostrar EM_ANDAMENTO enquanto houver negociação em curso
+        cursor.execute(
+            "UPDATE ALIM_TB_PUBLICACAO SET ST_PUBLICACAO = 'EM_ANDAMENTO' "
+            "WHERE CD_PUBLICACAO = :cd AND ST_PUBLICACAO = 'DISPONIVEL'",
+            {"cd": cd_oferta},
+        )
+
+        # Um commit só no final: tudo vale junto ou nada vale
+        conexao.commit()
+        print("\nSolicitação aceita!")
+
+        # Não há chat interno: mostramos o contato da instituição para combinar a retirada
+        cursor.execute(
+            "SELECT NM_FANTASIA, DS_EMAIL_CONTATO, NR_TELEFONE "
+            "FROM ALIM_TB_ORGANIZACAO WHERE CD_ORGANIZACAO = :cd",
+            {"cd": cd_instituicao},
+        )
+        contato = cursor.fetchone()
+        if contato is not None:
+            print(f"Combine a retirada com {contato[0]}:")
+            print(f"Email: {contato[1]}")
+            print(f"Telefone: {contato[2]}")
+
+    except orcl.Error as erro:
+        conexao.rollback()
+        print("Não foi possível aceitar a solicitação. Tente novamente!")
+        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+
+
+def recusar_solicitacao(cursor, conexao, cd_solicitacao):
+
+    # O banco exige motivo e data de encerramento para solicitação RECUSADA
+    motivo = input("Informe o motivo da recusa: ")
+    while motivo == "":
+        motivo = input("O motivo é obrigatório. Informe o motivo da recusa: ")
+
+    try:
+        cursor.execute(
+            "UPDATE ALIM_TB_SOLICITACAO SET ST_SOLICITACAO = 'RECUSADA', "
+            "DT_ENCERRAMENTO = SYSDATE, DS_MOTIVO_ENCERRAMENTO = :motivo "
+            "WHERE CD_SOLICITACAO = :cd AND ST_SOLICITACAO = 'PENDENTE'",
+            {"motivo": motivo, "cd": cd_solicitacao},
+        )
+
+        if cursor.rowcount == 0:
+            conexao.rollback()
+            print("Nenhuma solicitação foi alterada!")
+        else:
+            conexao.commit()
+            print("Solicitação recusada.")
+
+    except orcl.Error as erro:
+        conexao.rollback()
+        print("Não foi possível recusar a solicitação. Tente novamente!")
+        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+
+
+def ver_necessidades(cursor):
+
+    # Necessidades publicadas pelas instituições que ainda não foram finalizadas
+    cursor.execute(
+        "SELECT P.CD_PUBLICACAO, O.NM_FANTASIA, P.NM_TITULO, P.DS_DESCRICAO, N.DT_LIMITE, P.ST_PUBLICACAO "
+        "FROM ALIM_TB_PUBLICACAO P "
+        "JOIN ALIM_TB_NECESSIDADE N ON N.CD_PUBLICACAO = P.CD_PUBLICACAO "
+        "JOIN ALIM_TB_ORGANIZACAO O ON O.CD_ORGANIZACAO = P.CD_ORGANIZACAO "
+        "WHERE P.ST_PUBLICACAO <> 'FINALIZADO' ORDER BY P.DT_PUBLICACAO DESC"
+    )
+
+    necessidades = cursor.fetchall()
+    if not necessidades:
+        print("\n" "Nenhuma necessidade publicada!")
+        return
+
+    print("=== NECESSIDADES DAS INSTITUIÇÕES ===")
+
+    for necessidade in necessidades:
+        print("=" * 30)
+        print(f"Código: {necessidade[0]}")
+        print(f"Instituição: {necessidade[1]}")
+        print(f"Título: {necessidade[2]}")
+        print(f"Descrição: {necessidade[3]}")
+        if necessidade[4] is None:
+            print("Prazo: não informado")
+        else:
+            print(f"Prazo: {necessidade[4].strftime('%d/%m/%Y')}")
+        print(f"Status: {necessidade[5]}")
+
+        # Alimentos que a instituição precisa
+        cursor.execute(
+            "SELECT A.NM_ALIMENTO, I.QT_DESEJADA_KG "
+            "FROM ALIM_TB_ITEM_NECESSIDADE I "
+            "JOIN ALIM_TB_ALIMENTO A ON A.CD_ALIMENTO = I.CD_ALIMENTO "
+            "WHERE I.CD_PUBLICACAO = :cd",
+            {"cd": necessidade[0]},
+        )
+        itens = cursor.fetchall()
+        for item in itens:
+            print(f"  - {item[0]}: {item[1]} kg")
+
+    print("=" * 30)
+
+    return necessidades
+
+
+def ler_itens_oferta(cursor):
+
+    # Mostra o catálogo de alimentos e pede os itens da oferta.
+    # Devolve uma lista de dicionários (um por alimento), ou lista vazia se não der para continuar
+    cursor.execute(
+        "SELECT CD_ALIMENTO, NM_ALIMENTO FROM ALIM_TB_ALIMENTO ORDER BY NM_ALIMENTO"
+    )
+    alimentos = cursor.fetchall()
+    if not alimentos:
+        print("\n" "Nenhum alimento cadastrado no catálogo. Fale com a administração.")
+        return []
+
+    print("\n=== ALIMENTOS DISPONÍVEIS ===")
+    codigos_validos = []
+    for alimento in alimentos:
+        print(f"{alimento[0]} - {alimento[1]}")
+        codigos_validos.append(alimento[0])
+
+    itens = []
+    codigos_escolhidos = []
+
+    while True:
+        cd_alimento = ler_opcao("\nDigite o código do alimento: ")
+
+        if cd_alimento not in codigos_validos:
+            print("Código inválido. Digite um dos códigos da lista.")
+        elif cd_alimento in codigos_escolhidos:
+            print("Este alimento já foi adicionado à oferta.")
+        else:
+            quantidade = 0
+            while quantidade <= 0:
+                try:
+                    quantidade = float(input("Quantidade em kg: ").replace(",", "."))
+                except ValueError:
+                    quantidade = 0
+                if quantidade <= 0:
+                    print("Digite uma quantidade maior que zero (ex.: 12.5).")
+
+            validade = None
+            texto_validade = input(
+                "Data de validade (dd/mm/aaaa) ou Enter se não houver: "
+            )
+            while texto_validade != "" and validade is None:
+                try:
+                    validade = datetime.strptime(texto_validade, "%d/%m/%Y")
+                    if validade.date() < datetime.now().date():
+                        print("A validade não pode ser uma data que já passou.")
+                        validade = None
+                        texto_validade = input(
+                            "Informe outra data (dd/mm/aaaa) ou Enter para pular: "
+                        )
+                except ValueError:
+                    texto_validade = input(
+                        "Data inválida. Use dd/mm/aaaa ou Enter para pular: "
+                    )
+
+            lote = input("Lote (Enter para pular): ")
+            conservacao = input(
+                "Condições de conservação (ex.: refrigerado a 4°C, Enter para pular): "
+            )
+
+            itens.append(
+                {
+                    "cd_alimento": cd_alimento,
+                    "quantidade": quantidade,
+                    "validade": validade,
+                    "lote": lote,
+                    "conservacao": conservacao,
+                }
+            )
+            codigos_escolhidos.append(cd_alimento)
+            print("Alimento adicionado!")
+
+            mais = ler_opcao("Adicionar outro alimento? (1 - Sim / 2 - Não): ")
+            if mais != 1:
+                break
+
+    return itens
+
+
+def publicar_oferta(cursor, conexao, estab):
+
+    # RN04 e RN12: só estabelecimento aprovado publica oferta
+    if estab["st_cadastro"] != "APROVADO":
+        print(
+            "\n" "Seu cadastro ainda não foi aprovado por um administrador. Você não pode publicar ofertas."
+        )
+        return
+
+    print("\n=== PUBLICAR OFERTA ===")
+    titulo = input("Título da oferta: ")
+    while titulo == "":
+        titulo = input("O título é obrigatório. Digite o título da oferta: ")
+
+    descricao = input("Descrição da oferta: ")
+    while descricao == "":
+        descricao = input("A descrição é obrigatória. Digite a descrição da oferta: ")
+
+    tags = ("EXCEDENTE", "PROXIMO_VENCIMENTO", "AMBOS")
+    print("\nTag da oferta:")
+    for i in range(len(tags)):
+        print(f"{i + 1} - {tags[i]}")
+    opcao_tag = ler_opcao("Escolha a tag: ")
+    while opcao_tag < 1 or opcao_tag > len(tags):
+        opcao_tag = ler_opcao("Opção inválida. Escolha a tag (1 a 3): ")
+    tp_tag = tags[opcao_tag - 1]
+
+    try:
+        itens = ler_itens_oferta(cursor)
+        if len(itens) == 0:
+            print("Oferta cancelada: nenhum alimento foi informado.")
+            return
+
+        # RN19: o estabelecimento precisa aceitar os termos antes de publicar
+        print("\n=== TERMOS DE RESPONSABILIDADE ===")
+        print("- As informações da oferta são verdadeiras")
+        print("- Os alimentos estão em condições adequadas de conservação")
+        print("- Os prazos informados serão respeitados")
+        print("- Combinarei a retirada com a instituição")
+        print("- Seguirei as normas sanitárias aplicáveis")
+        aceite = ler_opcao("Você aceita os termos? (1 - Sim / 2 - Não): ")
+        if aceite != 1:
+            print("Oferta não publicada: é preciso aceitar os termos de responsabilidade.")
+            return
+
+        # Status (DISPONIVEL) e data de publicação ficam de fora: o banco usa o valor padrão
+        cursor.execute(
+            "INSERT INTO ALIM_TB_PUBLICACAO (CD_ORGANIZACAO, NM_TITULO, DS_DESCRICAO) "
+            "VALUES (:org, :titulo, :descricao)",
+            {
+                "org": estab["cd_organizacao"],
+                "titulo": titulo,
+                "descricao": descricao,
+            },
+        )
+
+        # O código da publicação é gerado pelo banco: pegamos o maior código desta organização
+        cursor.execute(
+            "SELECT MAX(CD_PUBLICACAO) FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :org",
+            {"org": estab["cd_organizacao"]},
+        )
+        cd_publicacao = cursor.fetchone()[0]
+
+        cursor.execute(
+            "INSERT INTO ALIM_TB_OFERTA (CD_PUBLICACAO, TP_TAG, DT_ACEITE_TERMOS) "
+            "VALUES (:cd, :tag, SYSDATE)",
+            {"cd": cd_publicacao, "tag": tp_tag},
+        )
+
+        for item in itens:
+            cursor.execute(
+                "INSERT INTO ALIM_TB_ITEM_OFERTA (CD_PUBLICACAO, CD_ALIMENTO, QT_OFERTADA_KG, "
+                "DT_VALIDADE, DS_LOTE, DS_CONSERVACAO) "
+                "VALUES (:cd, :alimento, :quantidade, :validade, :lote, :conservacao)",
+                {
+                    "cd": cd_publicacao,
+                    "alimento": item["cd_alimento"],
+                    "quantidade": item["quantidade"],
+                    "validade": item["validade"],
+                    "lote": item["lote"],
+                    "conservacao": item["conservacao"],
+                },
+            )
+
+        # Um commit só no final: a oferta e todos os itens valem juntos ou nenhum vale
+        conexao.commit()
+        print(f"\nOferta publicada com sucesso! Código da publicação: {cd_publicacao}")
+
+    except orcl.Error as erro:
+        conexao.rollback()
+        print("Não foi possível publicar a oferta. Tente novamente!")
+        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+
+
+def deletar_publicacao(cursor, conexao, estab):
+
+    publicacoes = buscar_publi_estab(cursor, estab)
+    if not publicacoes:
+        return
+
+    cd_publicacao = ler_opcao(
+        "\nDigite o código da publicação que deseja deletar (0 para cancelar): "
+    )
+    if cd_publicacao == 0:
+        print("Exclusão cancelada.")
+        return
+
+    try:
+        # O filtro por CD_ORGANIZACAO impede deletar publicação de outro estabelecimento
+        cursor.execute(
+            "SELECT ST_PUBLICACAO FROM ALIM_TB_PUBLICACAO "
+            "WHERE CD_PUBLICACAO = :cd AND CD_ORGANIZACAO = :org",
+            {"cd": cd_publicacao, "org": estab["cd_organizacao"]},
+        )
+        publicacao = cursor.fetchone()
+
+        if publicacao is None:
+            print("Publicação não encontrada!")
+        elif publicacao[0] != "DISPONIVEL":
+            # RN41: só publicações DISPONIVEL podem ser deletadas
+            print("Só é possível deletar publicações com status DISPONIVEL!")
+        else:
+            # Se já recebeu solicitação, deletar apagaria o histórico (RN40)
+            cursor.execute(
+                "SELECT COUNT(*) FROM ALIM_TB_SOLICITACAO WHERE CD_OFERTA = :cd",
+                {"cd": cd_publicacao},
+            )
+            if cursor.fetchone()[0] > 0:
+                print(
+                    "Esta publicação já recebeu solicitações e não pode ser deletada, para preservar o histórico!"
+                )
+            else:
+                confirmar = ler_opcao(
+                    "Tem certeza que deseja deletar esta publicação? (1 - Sim / 2 - Não): "
+                )
+                if confirmar == 1:
+                    # Apaga primeiro as tabelas que dependem da publicação
+                    cursor.execute(
+                        "DELETE FROM ALIM_TB_ITEM_OFERTA WHERE CD_PUBLICACAO = :cd",
+                        {"cd": cd_publicacao},
+                    )
+                    cursor.execute(
+                        "DELETE FROM ALIM_TB_OFERTA WHERE CD_PUBLICACAO = :cd",
+                        {"cd": cd_publicacao},
+                    )
+                    cursor.execute(
+                        "DELETE FROM ALIM_TB_PUBLICACAO WHERE CD_PUBLICACAO = :cd AND CD_ORGANIZACAO = :org",
+                        {"cd": cd_publicacao, "org": estab["cd_organizacao"]},
+                    )
+                    conexao.commit()
+                    print("Publicação deletada com sucesso!")
+                else:
+                    print("Exclusão cancelada.")
+
+    except orcl.Error as erro:
+        conexao.rollback()
+        print("Não foi possível deletar a publicação. Tente novamente!")
+        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+
+
 def login_adm(cursor, email, senha):
 
     cursor.execute(
@@ -554,7 +1070,7 @@ def menu_estab(cursor, conexao, estab):
         print("1 - Alterar dados cadastrais")
         print("2 - Visualizar minhas doações")
         print("3 - Pesquisar instituições")
-        print("4 - Visualizar solicitações de instituições")
+        print("4 - Solicitações recebidas (ver, aceitar ou recusar)")
         print("5 - Ver publicações de necessidades")
         print("6 - Publicar uma oferta")
         print("7 - Deletar publicação")
@@ -567,28 +1083,32 @@ def menu_estab(cursor, conexao, estab):
                 alterar_conta_estab(cursor, conexao, estab)
             case 2:
                 buscar_publi_estab(cursor, estab)
-                time.sleep(2)
+                input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
             case 3:
                 print("\n" "Buscando instituições...")
-                time.sleep(5)
+                time.sleep(3)
                 os.system('cls')
                 ver_instituicoes(cursor)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system("cls")
             case 4:
-                print("Função para visualizar as solicitações das instituições")
-                time.sleep(2)
+                solicitacoes = ver_solicitacoes_estab(cursor, estab)
+                if solicitacoes:
+                    responder_solicitacao(cursor, conexao, estab)
+                input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
             case 5:
-                print("Função para ver as publicações de necessidades das instituições")
-                time.sleep(2)
+                ver_necessidades(cursor)
+                input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
             case 6:
-                print("Função para publicar uma oferta")
-                time.sleep(2)
+                publicar_oferta(cursor, conexao, estab)
+                input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
             case 7:
-                print("Função para deletar uma publicação")
-                time.sleep(2)
+                deletar_publicacao(cursor, conexao, estab)
+                input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
             case 8:
                 print("Saindo...")
