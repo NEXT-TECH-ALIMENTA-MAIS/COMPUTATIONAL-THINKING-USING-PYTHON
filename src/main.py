@@ -125,7 +125,9 @@ def inserir_conta_estab(cursor, conexao):
         )
 
         conexao.commit()
-        print("Cadastro realizado com sucesso! Aguarde a aprovação de um administrador.")
+        print(
+            "Cadastro realizado com sucesso! Aguarde a aprovação de um administrador."
+        )
 
     except orcl.Error as erro:
         conexao.rollback()
@@ -214,7 +216,9 @@ def inserir_conta_inst(cursor, conexao):
             bairro_inst = dados_org["address"]["district"]
             cidade_inst = dados_org["address"]["city"]
             estado_inst = dados_org["address"]["state"]
-            endereco_inst = f"{logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}"
+            endereco_inst = (
+                f"{logr_inst} {nro_inst}, {bairro_inst} - {cidade_inst}/{estado_inst}"
+            )
             print(f"Nome empresarial: {nm_razao_social}")
             print(f"Nome fantasia: {nm_fantasia_inst}")
             print(f"Endereço: {endereco_inst}")
@@ -258,7 +262,9 @@ def inserir_conta_inst(cursor, conexao):
         )
 
         conexao.commit()
-        print("Cadastro realizado com sucesso! Aguarde a aprovação de um administrador.")
+        print(
+            "Cadastro realizado com sucesso! Aguarde a aprovação de um administrador."
+        )
 
     except orcl.Error as erro:
         conexao.rollback()
@@ -323,7 +329,10 @@ def alterar_conta_inst(cursor, conexao, inst):
 
 def buscar_publi_estab(cursor, estab):
 
-    cursor.execute("""SELECT CD_PUBLICACAO, NM_TITULO, DS_DESCRICAO, DT_PUBLICACAO, ST_PUBLICACAO FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :cd ORDER BY DT_PUBLICACAO DESC""", {"cd": estab["cd_organizacao"]})
+    cursor.execute(
+        """SELECT CD_PUBLICACAO, NM_TITULO, DS_DESCRICAO, DT_PUBLICACAO, ST_PUBLICACAO FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :cd ORDER BY DT_PUBLICACAO DESC""",
+        {"cd": estab["cd_organizacao"]},
+    )
 
     publicacoes = cursor.fetchall()
     if not publicacoes:
@@ -344,9 +353,12 @@ def buscar_publi_estab(cursor, estab):
 
     return publicacoes
 
+
 def ver_instituicoes(cursor):
 
-    cursor.execute("""SELECT NM_FANTASIA, NR_CNPJ, DS_EMAIL_CONTATO, NR_TELEFONE, DS_ENDERECO FROM ALIM_TB_ORGANIZACAO WHERE TP_ORGANIZACAO = 'INSTITUICAO' """)
+    cursor.execute(
+        """SELECT NM_FANTASIA, NR_CNPJ, DS_EMAIL_CONTATO, NR_TELEFONE, DS_ENDERECO FROM ALIM_TB_ORGANIZACAO WHERE TP_ORGANIZACAO = 'INSTITUICAO' """
+    )
     instituicoes = cursor.fetchall()
     if not instituicoes:
         print("\n" "Nenhuma instituição encontrada!")
@@ -443,7 +455,9 @@ def responder_solicitacao(cursor, conexao, estab):
             if resposta == 1:
                 if solicitacao[3] == "FINALIZADO":
                     # RN42: oferta finalizada não recebe novas solicitações
-                    print("Esta oferta já foi finalizada. Só é possível recusar a solicitação.")
+                    print(
+                        "Esta oferta já foi finalizada. Só é possível recusar a solicitação."
+                    )
                 else:
                     aceitar_solicitacao(
                         cursor, conexao, cd_solicitacao, solicitacao[1], solicitacao[2]
@@ -504,7 +518,9 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
             while quantidade < 0 or quantidade > limite:
                 try:
                     quantidade = float(
-                        input(f"Quanto deseja reservar? (de 0 até {limite} kg): ").replace(",", ".")
+                        input(
+                            f"Quanto deseja reservar? (de 0 até {limite} kg): "
+                        ).replace(",", ".")
                     )
                 except ValueError:
                     quantidade = -1
@@ -515,7 +531,9 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
             total_reservado += quantidade
 
         if total_reservado == 0:
-            print("\nNenhuma quantidade foi reservada. Se não puder atender, use a opção de recusar.")
+            print(
+                "\nNenhuma quantidade foi reservada. Se não puder atender, use a opção de recusar."
+            )
             return
 
         confirmar = ler_opcao(
@@ -727,7 +745,8 @@ def publicar_oferta(cursor, conexao, estab):
     # RN04 e RN12: só estabelecimento aprovado publica oferta
     if estab["st_cadastro"] != "APROVADO":
         print(
-            "\n" "Seu cadastro ainda não foi aprovado por um administrador. Você não pode publicar ofertas."
+            "\n"
+            "Seu cadastro ainda não foi aprovado por um administrador. Você não pode publicar ofertas."
         )
         return
 
@@ -764,7 +783,9 @@ def publicar_oferta(cursor, conexao, estab):
         print("- Seguirei as normas sanitárias aplicáveis")
         aceite = ler_opcao("Você aceita os termos? (1 - Sim / 2 - Não): ")
         if aceite != 1:
-            print("Oferta não publicada: é preciso aceitar os termos de responsabilidade.")
+            print(
+                "Oferta não publicada: é preciso aceitar os termos de responsabilidade."
+            )
             return
 
         # Status (DISPONIVEL) e data de publicação ficam de fora: o banco usa o valor padrão
@@ -879,7 +900,117 @@ def deletar_publicacao(cursor, conexao, estab):
     except orcl.Error as erro:
         conexao.rollback()
         print("Não foi possível deletar a publicação. Tente novamente!")
-        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+        print(f"(Detalhe técnico: {erro})")
+
+
+def analisar_cad_pendentes(cursor, conexao):
+
+    cursor.execute("""
+        SELECT CD_ORGANIZACAO, NR_CNPJ, TP_ORGANIZACAO,
+               NM_RAZAO_SOCIAL, NM_FANTASIA, DS_LOGIN,
+               DS_EMAIL_CONTATO, NR_TELEFONE, DS_ENDERECO,
+               ST_CADASTRO, ST_CONTA
+        FROM ALIM_TB_ORGANIZACAO
+        WHERE ST_CADASTRO = 'PENDENTE'
+        ORDER BY CD_ORGANIZACAO
+    """)
+
+    cad_pendentes = cursor.fetchall()
+
+    if not cad_pendentes:
+        print("\n""Não há cadastros pendentes!")
+        input("\n""Pressione Enter para voltar: ")
+        os.system('cls')
+        return
+
+    print("=== CADASTROS PENDENTES ===")
+
+    for cad_pendente in cad_pendentes:
+
+        if not cad_pendentes:
+            print("Não há cadastros pendentes!")
+            break
+
+        print("=" * 30)
+        print(f"CNPJ: {cad_pendente[1]}")
+        print(f"Tipo de organização: {cad_pendente[2]}")
+        print(f"Razão Social: {cad_pendente[3]}")
+        print(f"Nome fantasia: {cad_pendente[4]}")
+        print(f"Login: {cad_pendente[5]}")
+        print(f"Email: {cad_pendente[6]}")
+        print(f"Telefone: {cad_pendente[7]}")
+        print(f"Endereço: {cad_pendente[8]}")
+        print(f"Situação do cadastro: {cad_pendente[9]}")
+        print(f"Situação da conta: {cad_pendente[10]}")
+
+        print("\n1 - Aprovar cadastro")
+        print("2 - Reprovar cadastro")
+        print("3 - Voltar")
+
+        resposta = ler_opcao("Escolha uma opção: ")
+
+        # APROVAR CADASTRO
+        if resposta == 1:
+
+            try:
+                cursor.execute(
+                    """
+                    UPDATE ALIM_TB_ORGANIZACAO
+                    SET ST_CADASTRO = 'APROVADO'
+                    WHERE CD_ORGANIZACAO = :cd
+                    AND ST_CADASTRO = 'PENDENTE'
+                """,
+                    {"cd": cad_pendente[0]},
+                )
+
+                if cursor.rowcount > 0:
+                    conexao.commit()
+                    print("\nCadastro aprovado com sucesso!")
+                    input("Aperte Enter para avançar: ")
+                    os.system("cls")
+                else:
+                    conexao.rollback()
+                    print("\nCadastro não encontrado ou já analisado!")
+                    input("Aperte Enter para avançar: ")
+                    os.system("cls")
+            except orcl.Error as erro:
+                conexao.rollback()
+                print(f"Erro ao aprovar cadastro: {erro}")
+
+        # REPROVAR CADASTRO
+        elif resposta == 2:
+
+            try:
+                cursor.execute(
+                    """
+                    UPDATE ALIM_TB_ORGANIZACAO
+                    SET ST_CADASTRO = 'REPROVADO'
+                    WHERE CD_ORGANIZACAO = :cd
+                    AND ST_CADASTRO = 'PENDENTE'
+                """,
+                    {"cd": cad_pendente[0]},
+                )
+
+                if cursor.rowcount > 0:
+                    conexao.commit()
+                    print("\nCadastro reprovado com sucesso!")
+                    input("Aperte Enter para avançar: ")
+                    os.system("cls")
+                else:
+                    conexao.rollback()
+                    print("\nCadastro não encontrado ou já analisado!")
+                    input("Aperte Enter para avançar: ")
+                    os.system("cls")
+
+            except orcl.Error as erro:
+                conexao.rollback()
+                print(f"Erro ao reprovar cadastro: {erro}")
+
+        elif resposta == 3:
+            return
+
+        else:
+            print("Opção inválida!")
 
 
 def login_adm(cursor, email, senha):
@@ -1088,7 +1219,7 @@ def menu_estab(cursor, conexao, estab):
             case 3:
                 print("\n" "Buscando instituições...")
                 time.sleep(3)
-                os.system('cls')
+                os.system("cls")
                 ver_instituicoes(cursor)
                 input("\nPressione Enter para voltar ao menu ")
                 os.system("cls")
@@ -1149,9 +1280,59 @@ def menu_inst(cursor, conexao, inst):
 
 def menu_adm(cursor, conexao, adm):
 
-    print(f"Bem-vindo, {adm['nm_usuario']}! Menu do administrador em construção.")
-    time.sleep(2)
-    os.system("cls")
+    while True:
+
+        print("\n" + "=" * 20)
+        print(f"     Bem vindo, {adm['nm_usuario']}! Qual a tarefa de hoje?")
+        print("=" * 20)
+        print("1 - Analisar cadastros pendentes")
+        print("2 - Listar organizações")
+        print("3 - Inativar organização")
+        print("4 - Catálogo de alimentos")
+        print("5 - Indicadores de impacto")
+        print("6 - Resolver divergências")
+        print("7 - Sair")
+
+        opcao = ler_opcao("Digite a opção desejada: ")
+
+        match opcao:
+            case 1:
+                os.system("cls")
+                analisar_cad_pendentes(cursor, conexao)
+            case 2:
+                buscar_publi_estab(cursor, estab)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system("cls")
+            case 3:
+                print("\n" "Buscando instituições...")
+                time.sleep(3)
+                os.system("cls")
+                ver_instituicoes(cursor)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system("cls")
+            case 4:
+                solicitacoes = ver_solicitacoes_estab(cursor, estab)
+                if solicitacoes:
+                    responder_solicitacao(cursor, conexao, estab)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system("cls")
+            case 5:
+                ver_necessidades(cursor)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system("cls")
+            case 6:
+                publicar_oferta(cursor, conexao, estab)
+                input("\nPressione Enter para voltar ao menu ")
+                os.system("cls")
+            case 7:
+                print("Saindo...")
+                time.sleep(2)
+                os.system("cls")
+                break
+            case _:
+                print("Opção inválida, tente novamente!")
+                time.sleep(2)
+                os.system("cls")
 
 
 if __name__ == "__main__":
