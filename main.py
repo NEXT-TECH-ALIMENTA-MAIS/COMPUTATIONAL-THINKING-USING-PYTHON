@@ -5,8 +5,10 @@ from dotenv import load_dotenv
 import oracledb as orcl
 import requests
 
+
 def limpar_tela():
     os.system("cls" if os.name == "nt" else "clear")
+
 
 def exibir_cabecalho(titulo, subtitulo=None):
     largura = 64
@@ -15,6 +17,7 @@ def exibir_cabecalho(titulo, subtitulo=None):
     if subtitulo:
         print(f"║{subtitulo.center(largura)}║")
     print("╚" + "═" * largura + "╝")
+
 
 def conectar_db():
     load_dotenv()
@@ -39,12 +42,14 @@ def conectar_db():
         return False, None, None
     return True, conexao, cursor
 
+
 def ler_opcao(pergunta):
 
     try:
         return int(input(pergunta))
     except ValueError:
         return -1
+
 
 def buscar_conta(cursor, cnpj_org):
     # Confere o CNPJ mesmo se a conta estiver inativa.
@@ -57,10 +62,10 @@ def buscar_conta(cursor, cnpj_org):
         return -1
     return conta[0]
 
+
 def inserir_conta_estab(cursor, conexao):
 
     try:
-
 
         cnpj_org = input("Informe o CNPJ do estabelecimento (apenas números): ")
         while (
@@ -143,6 +148,7 @@ def inserir_conta_estab(cursor, conexao):
         )
         print(f"(Detalhe técnico: {erro})")
 
+
 def alterar_conta_estab(cursor, conexao, estab):
 
     print(f"Telefone de contato: {estab['nr_telefone']}")
@@ -194,6 +200,7 @@ def alterar_conta_estab(cursor, conexao, estab):
     except orcl.Error:
         conexao.rollback()
         print("Não foi possivel realizar as alterações. Tente novamente!")
+
 
 def inserir_conta_inst(cursor, conexao):
 
@@ -278,6 +285,7 @@ def inserir_conta_inst(cursor, conexao):
         )
         print(f"(Detalhe técnico: {erro})")
 
+
 def alterar_conta_inst(cursor, conexao, inst):
 
     print(f"Telefone de contato: {inst['nr_telefone']}")
@@ -330,6 +338,7 @@ def alterar_conta_inst(cursor, conexao, inst):
         conexao.rollback()
         print("Não foi possivel realizar as alterações. Tente novamente!")
 
+
 def buscar_publi_estab(cursor, estab):
 
     cursor.execute(
@@ -356,6 +365,7 @@ def buscar_publi_estab(cursor, estab):
 
     return publicacoes
 
+
 def ver_instituicoes(cursor):
 
     cursor.execute(
@@ -380,8 +390,8 @@ def ver_instituicoes(cursor):
 
     return instituicoes
 
-def ver_solicitacoes_estab(cursor, estab):
 
+def ver_solicitacoes_estab(cursor, estab):
 
     cursor.execute(
         "SELECT S.CD_SOLICITACAO, O.NM_FANTASIA, P.NM_TITULO, S.DT_SOLICITACAO, S.ST_SOLICITACAO "
@@ -407,7 +417,6 @@ def ver_solicitacoes_estab(cursor, estab):
         print(f"Data: {solicitacao[3].strftime('%d/%m/%Y')}")
         print(f"Status: {solicitacao[4]}")
 
-
         cursor.execute(
             "SELECT A.NM_ALIMENTO, I.QT_SOLICITADA_KG, I.QT_ALOCADA_KG "
             "FROM ALIM_TB_ITEM_SOLICITACAO I "
@@ -423,6 +432,7 @@ def ver_solicitacoes_estab(cursor, estab):
     print("=" * 30)
 
     return solicitacoes
+
 
 def responder_solicitacao(cursor, conexao, estab):
 
@@ -472,6 +482,7 @@ def responder_solicitacao(cursor, conexao, estab):
         print("Não foi possível responder a solicitação. Tente novamente!")
         print(f"(Detalhe técnico: {erro})")
 
+
 def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituicao):
 
     try:
@@ -506,7 +517,6 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
             )
             ja_comprometido = float(cursor.fetchone()[0])
             saldo_livre = round(float(item[4]) - ja_comprometido, 3)
-
 
             limite = round(min(float(item[3]), saldo_livre), 3)
             if limite < 0:
@@ -566,7 +576,6 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
         conexao.commit()
         print("\nSolicitação aceita!")
 
-
         cursor.execute(
             "SELECT NM_FANTASIA, DS_EMAIL_CONTATO, NR_TELEFONE "
             "FROM ALIM_TB_ORGANIZACAO WHERE CD_ORGANIZACAO = :cd",
@@ -582,6 +591,7 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
         conexao.rollback()
         print("Não foi possível aceitar a solicitação. Tente novamente!")
         print(f"(Detalhe técnico: {erro})")
+
 
 def recusar_solicitacao(cursor, conexao, cd_solicitacao):
 
@@ -610,8 +620,8 @@ def recusar_solicitacao(cursor, conexao, cd_solicitacao):
         print("Não foi possível recusar a solicitação. Tente novamente!")
         print(f"(Detalhe técnico: {erro})")
 
-def ver_necessidades(cursor):
 
+def ver_necessidades(cursor):
 
     cursor.execute(
         "SELECT P.CD_PUBLICACAO, O.NM_FANTASIA, P.NM_TITULO, P.DS_DESCRICAO, N.DT_LIMITE, P.ST_PUBLICACAO "
@@ -640,7 +650,6 @@ def ver_necessidades(cursor):
             print(f"Prazo: {necessidade[4].strftime('%d/%m/%Y')}")
         print(f"Status: {necessidade[5]}")
 
-
         cursor.execute(
             "SELECT A.NM_ALIMENTO, I.QT_DESEJADA_KG "
             "FROM ALIM_TB_ITEM_NECESSIDADE I "
@@ -656,9 +665,8 @@ def ver_necessidades(cursor):
 
     return necessidades
 
+
 def ler_itens_oferta(cursor):
-
-
 
     cursor.execute(
         "SELECT CD_ALIMENTO, NM_ALIMENTO FROM ALIM_TB_ALIMENTO ORDER BY NM_ALIMENTO"
@@ -735,6 +743,7 @@ def ler_itens_oferta(cursor):
 
     return itens
 
+
 def publicar_oferta(cursor, conexao, estab):
 
     # Somente estabelecimentos aprovados podem publicar ofertas.
@@ -783,7 +792,6 @@ def publicar_oferta(cursor, conexao, estab):
             )
             return
 
-
         cursor.execute(
             "INSERT INTO ALIM_TB_PUBLICACAO (CD_ORGANIZACAO, NM_TITULO, DS_DESCRICAO) "
             "VALUES (:org, :titulo, :descricao)",
@@ -793,7 +801,6 @@ def publicar_oferta(cursor, conexao, estab):
                 "descricao": descricao,
             },
         )
-
 
         cursor.execute(
             "SELECT MAX(CD_PUBLICACAO) FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :org",
@@ -830,6 +837,7 @@ def publicar_oferta(cursor, conexao, estab):
         conexao.rollback()
         print("Não foi possível publicar a oferta. Tente novamente!")
         print(f"(Detalhe técnico: {erro})")
+
 
 def deletar_publicacao(cursor, conexao, estab):
 
@@ -896,6 +904,7 @@ def deletar_publicacao(cursor, conexao, estab):
         print("Não foi possível deletar a publicação. Tente novamente!")
         print(f"(Detalhe técnico: {erro})")
 
+
 def analisar_cad_pendentes(cursor, conexao):
 
     cursor.execute("""
@@ -942,7 +951,6 @@ def analisar_cad_pendentes(cursor, conexao):
 
         resposta = ler_opcao("Escolha uma opção: ")
 
-
         if resposta == 1:
 
             try:
@@ -969,7 +977,6 @@ def analisar_cad_pendentes(cursor, conexao):
             except orcl.Error as erro:
                 conexao.rollback()
                 print(f"Erro ao aprovar cadastro: {erro}")
-
 
         elif resposta == 2:
 
@@ -1004,6 +1011,7 @@ def analisar_cad_pendentes(cursor, conexao):
 
         else:
             print("Opção inválida!")
+
 
 def listar_organizacoes(cursor):
 
@@ -1106,7 +1114,8 @@ def listar_organizacoes(cursor):
         print(f"Situação da conta: {organizacao[5]}")
 
     print("=" * 30)
-    print("\n"f"Total de organizações encontradas: {len(organizacoes)}")
+    print("\n" f"Total de organizações encontradas: {len(organizacoes)}")
+
 
 def login_adm(cursor, email, senha):
 
@@ -1120,6 +1129,7 @@ def login_adm(cursor, email, senha):
     if linha is None:
         return None
     return {"cd_usuario": linha[0], "nm_usuario": linha[1]}
+
 
 def login_estab(cursor, cnpj_estab, senha_estab):
 
@@ -1148,6 +1158,7 @@ def login_estab(cursor, cnpj_estab, senha_estab):
         "ds_senha_hash": linha[13],
     }
 
+
 def login_inst(cursor, cnpj_inst, senha_inst):
 
     cursor.execute(
@@ -1175,6 +1186,7 @@ def login_inst(cursor, cnpj_inst, senha_inst):
         "ds_senha_hash": linha[13],
     }
 
+
 def main():
 
     conexao_db, conexao, cursor = conectar_db()
@@ -1182,7 +1194,9 @@ def main():
     if conexao_db is True:
         while True:
             limpar_tela()
-            exibir_cabecalho("ALIMENTA+ - SISTEMA DE DOAÇÕES", "A comida chega a quem precisa")
+            exibir_cabecalho(
+                "ALIMENTA+ - SISTEMA DE DOAÇÕES", "A comida chega a quem precisa"
+            )
             print("\n")
             print("1 - Entrar como estabelecimento")
             print("2 - Entrar como instituição")
@@ -1275,11 +1289,11 @@ def main():
                 print("Erro ao acessar o banco de dados. Tente novamente!")
                 print(f"(Detalhe técnico: {erro})")
 
-
         cursor.close()
         conexao.close()
     else:
         print("A conexão com o banco de dados não foi estabelecida!")
+
 
 def menu_estab(cursor, conexao, estab):
 
@@ -1339,6 +1353,7 @@ def menu_estab(cursor, conexao, estab):
                 print("Opção inválida, tente novamente!")
                 time.sleep(2)
                 limpar_tela()
+
 
 def inativar_organizacao(cursor, conexao, adm):
     limpar_tela()
@@ -1429,6 +1444,7 @@ def inativar_organizacao(cursor, conexao, adm):
         conexao.rollback()
         print("Erro ao inativar organização:", erro)
 
+
 def listar_alimentos(cursor, ordenar_por_codigo=False):
 
     ordem = "CD_ALIMENTO ASC" if ordenar_por_codigo else "NM_ALIMENTO ASC"
@@ -1450,6 +1466,7 @@ def listar_alimentos(cursor, ordenar_por_codigo=False):
         print(f"Alimento: {alimento[1]}")
         print(f"Classificação: {alimento[2]}")
     print("-" * 45)
+
 
 def cadastrar_alimento(cursor, conexao):
     limpar_tela()
@@ -1482,6 +1499,7 @@ def cadastrar_alimento(cursor, conexao):
     except orcl.Error as erro:
         conexao.rollback()
         print("\nNão foi possível cadastrar o alimento:", erro)
+
 
 def alterar_alimento(cursor, conexao):
     limpar_tela()
@@ -1532,6 +1550,7 @@ def alterar_alimento(cursor, conexao):
         conexao.rollback()
         print("\nNão foi possível alterar o alimento:", erro)
 
+
 def menu_catalogo_alimentos(cursor, conexao):
     while True:
         limpar_tela()
@@ -1557,6 +1576,7 @@ def menu_catalogo_alimentos(cursor, conexao):
             print("Opção inválida!")
 
         input("\nPressione Enter para continuar...")
+
 
 def ver_ofertas_disponiveis(cursor, ordenar_por_codigo=False):
     limpar_tela()
@@ -1641,6 +1661,7 @@ def ver_ofertas_disponiveis(cursor, ordenar_por_codigo=False):
 
     print("-" * 50)
     return codigos_exibidos
+
 
 def solicitar_oferta(cursor, conexao, inst):
 
@@ -1731,6 +1752,7 @@ def solicitar_oferta(cursor, conexao, inst):
     except orcl.Error as erro:
         conexao.rollback()
         print("\nNão foi possível registrar a solicitação:", erro)
+
 
 def minhas_solicitacoes(cursor, conexao, inst):
     limpar_tela()
@@ -1859,6 +1881,7 @@ def minhas_solicitacoes(cursor, conexao, inst):
         conexao.rollback()
         print("Não foi possível cancelar a solicitação:", erro)
 
+
 def publicar_necessidade(cursor, conexao, inst):
     limpar_tela()
     if inst["st_cadastro"] != "APROVADO":
@@ -1886,7 +1909,6 @@ def publicar_necessidade(cursor, conexao, inst):
             print("Data inválida. Use dd/mm/aaaa.")
             return
 
-
     cursor.execute(
         "SELECT CD_ALIMENTO, NM_ALIMENTO FROM ALIM_TB_ALIMENTO ORDER BY CD_ALIMENTO ASC"
     )
@@ -1905,7 +1927,12 @@ def publicar_necessidade(cursor, conexao, inst):
         cd_alimento = ler_opcao("\nCódigo do alimento (0 para finalizar): ")
         if cd_alimento == 0:
             break
-        if cd_alimento not in [a[0] for a in alimentos] or cd_alimento in codigos:
+        codigos_validos = []
+
+        for alimento in alimentos:
+            codigos_validos.append(alimento[0])
+
+        if cd_alimento not in codigos_validos or cd_alimento in codigos:
             print("Código inválido ou alimento já adicionado.")
             continue
         quantidade = 0
@@ -1973,6 +2000,7 @@ def publicar_necessidade(cursor, conexao, inst):
     except orcl.Error as erro:
         conexao.rollback()
         print("\nNão foi possível publicar a necessidade:", erro)
+
 
 def minhas_necessidades(cursor, conexao, inst):
     limpar_tela()
@@ -2077,6 +2105,7 @@ def minhas_necessidades(cursor, conexao, inst):
         conexao.rollback()
         print("Não foi possível excluir a necessidade:", erro)
 
+
 def pesquisar_estabelecimentos(cursor):
     limpar_tela()
 
@@ -2104,6 +2133,7 @@ def pesquisar_estabelecimentos(cursor):
         print(f"Telefone: {estabelecimento[3]}")
         print(f"Endereço: {estabelecimento[4]}")
     print("-" * 50)
+
 
 def confirmar_recebimento(cursor, conexao, inst):
     limpar_tela()
@@ -2139,7 +2169,12 @@ def confirmar_recebimento(cursor, conexao, inst):
     cd_solicitacao = ler_opcao("\nCódigo da solicitação recebida (0 para voltar): ")
     if cd_solicitacao == 0:
         return
-    if cd_solicitacao not in [s[0] for s in solicitacoes]:
+    codigos_solicitacoes = []
+
+    for solicitacao in solicitacoes:
+        codigos_solicitacoes.append(solicitacao[0])
+
+    if cd_solicitacao not in codigos_solicitacoes:
         print("Solicitação inválida!")
         return
 
@@ -2267,6 +2302,7 @@ def confirmar_recebimento(cursor, conexao, inst):
         conexao.rollback()
         print("\nNão foi possível confirmar o recebimento:", erro)
 
+
 def menu_inst(cursor, conexao, inst):
     while True:
         limpar_tela()
@@ -2317,6 +2353,7 @@ def menu_inst(cursor, conexao, inst):
                 print("\nOpção inválida, tente novamente!")
                 time.sleep(1.5)
 
+
 def menu_adm(cursor, conexao, adm):
     while True:
         limpar_tela()
@@ -2351,6 +2388,7 @@ def menu_adm(cursor, conexao, adm):
             case _:
                 print("\nOpção inválida, tente novamente!")
                 time.sleep(1.5)
+
 
 if __name__ == "__main__":
     main()
