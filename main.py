@@ -40,14 +40,14 @@ def conectar_db():
     return True, conexao, cursor
 
 def ler_opcao(pergunta):
-    # Se o usuário digitar uma letra, devolve -1 (cai no "opção inválida")
+
     try:
         return int(input(pergunta))
     except ValueError:
         return -1
 
 def buscar_conta(cursor, cnpj_org):
-    # Procura em todas as contas, inclusive as inativas (RN02)
+    # Confere o CNPJ mesmo se a conta estiver inativa.
     cursor.execute(
         "SELECT CD_ORGANIZACAO FROM ALIM_TB_ORGANIZACAO WHERE NR_CNPJ = :cnpj_org",
         {"cnpj_org": cnpj_org},
@@ -60,8 +60,8 @@ def buscar_conta(cursor, cnpj_org):
 def inserir_conta_estab(cursor, conexao):
 
     try:
-        # O CNPJ fica como texto (como número perderia o zero à esquerda).
-        # Pede de novo se não tiver 14 números ou se já estiver cadastrado
+
+
         cnpj_org = input("Informe o CNPJ do estabelecimento (apenas números): ")
         while (
             len(cnpj_org) != 14
@@ -72,7 +72,7 @@ def inserir_conta_estab(cursor, conexao):
                 "CNPJ inválido ou já cadastrado, informe outro CNPJ (14 números): "
             )
 
-        # Se a API falhar (sem internet, CNPJ não encontrado...), o usuário digita os dados
+        # Se a consulta do CNPJ falhar, os dados são preenchidos manualmente.
         try:
             requisicao = requests.get(
                 f"https://open.cnpja.com/office/{cnpj_org}", timeout=10
@@ -276,7 +276,7 @@ def inserir_conta_inst(cursor, conexao):
         print(
             "Não foi possível concluir o cadastro. Confira se o login já não está em uso e tente novamente!"
         )
-        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+        print(f"(Detalhe técnico: {erro})")
 
 def alterar_conta_inst(cursor, conexao, inst):
 
@@ -382,7 +382,7 @@ def ver_instituicoes(cursor):
 
 def ver_solicitacoes_estab(cursor, estab):
 
-    # Solicitações que as instituições fizeram nas ofertas deste estabelecimento
+
     cursor.execute(
         "SELECT S.CD_SOLICITACAO, O.NM_FANTASIA, P.NM_TITULO, S.DT_SOLICITACAO, S.ST_SOLICITACAO "
         "FROM ALIM_TB_SOLICITACAO S "
@@ -407,7 +407,7 @@ def ver_solicitacoes_estab(cursor, estab):
         print(f"Data: {solicitacao[3].strftime('%d/%m/%Y')}")
         print(f"Status: {solicitacao[4]}")
 
-        # Alimentos pedidos nesta solicitação
+
         cursor.execute(
             "SELECT A.NM_ALIMENTO, I.QT_SOLICITADA_KG, I.QT_ALOCADA_KG "
             "FROM ALIM_TB_ITEM_SOLICITACAO I "
@@ -454,7 +454,7 @@ def responder_solicitacao(cursor, conexao, estab):
 
             if resposta == 1:
                 if solicitacao[3] == "FINALIZADO":
-                    # RN42: oferta finalizada não recebe novas solicitações
+
                     print(
                         "Esta oferta já foi finalizada. Só é possível recusar a solicitação."
                     )
@@ -475,7 +475,7 @@ def responder_solicitacao(cursor, conexao, estab):
 def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituicao):
 
     try:
-        # Alimentos pedidos nesta solicitação
+
         cursor.execute(
             "SELECT I.CD_ITEM_SOLICITACAO, I.CD_ITEM_OFERTA, A.NM_ALIMENTO, I.QT_SOLICITADA_KG, IO.QT_OFERTADA_KG "
             "FROM ALIM_TB_ITEM_SOLICITACAO I "
@@ -494,8 +494,8 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
         total_reservado = 0
 
         for item in itens:
-            # RN31: a soma reservada não pode passar do saldo do alimento.
-            # Saldo livre = quantidade ofertada - o que já está reservado (ou entregue) em outras solicitações
+            # Calcula quanto ainda pode ser reservado sem ultrapassar a oferta.
+
             cursor.execute(
                 "SELECT NVL(SUM(X.QT_ALOCADA_KG), 0) "
                 "FROM ALIM_TB_ITEM_SOLICITACAO X "
@@ -507,7 +507,7 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
             ja_comprometido = float(cursor.fetchone()[0])
             saldo_livre = round(float(item[4]) - ja_comprometido, 3)
 
-            # Não pode reservar mais do que foi pedido nem mais do que o saldo livre
+
             limite = round(min(float(item[3]), saldo_livre), 3)
             if limite < 0:
                 limite = 0
@@ -555,18 +555,18 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
             {"cd": cd_solicitacao},
         )
 
-        # RN28: a oferta passa a mostrar EM_ANDAMENTO enquanto houver negociação em curso
+        # Atualiza a oferta quando uma solicitação é aceita.
         cursor.execute(
             "UPDATE ALIM_TB_PUBLICACAO SET ST_PUBLICACAO = 'EM_ANDAMENTO' "
             "WHERE CD_PUBLICACAO = :cd AND ST_PUBLICACAO = 'DISPONIVEL'",
             {"cd": cd_oferta},
         )
 
-        # Um commit só no final: tudo vale junto ou nada vale
+        # Salva a reserva e os status na mesma operação.
         conexao.commit()
         print("\nSolicitação aceita!")
 
-        # Não há chat interno: mostramos o contato da instituição para combinar a retirada
+
         cursor.execute(
             "SELECT NM_FANTASIA, DS_EMAIL_CONTATO, NR_TELEFONE "
             "FROM ALIM_TB_ORGANIZACAO WHERE CD_ORGANIZACAO = :cd",
@@ -581,11 +581,11 @@ def aceitar_solicitacao(cursor, conexao, cd_solicitacao, cd_oferta, cd_instituic
     except orcl.Error as erro:
         conexao.rollback()
         print("Não foi possível aceitar a solicitação. Tente novamente!")
-        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+        print(f"(Detalhe técnico: {erro})")
 
 def recusar_solicitacao(cursor, conexao, cd_solicitacao):
 
-    # O banco exige motivo e data de encerramento para solicitação RECUSADA
+    # A recusa precisa ter uma justificativa.
     motivo = input("Informe o motivo da recusa: ")
     while motivo == "":
         motivo = input("O motivo é obrigatório. Informe o motivo da recusa: ")
@@ -608,11 +608,11 @@ def recusar_solicitacao(cursor, conexao, cd_solicitacao):
     except orcl.Error as erro:
         conexao.rollback()
         print("Não foi possível recusar a solicitação. Tente novamente!")
-        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+        print(f"(Detalhe técnico: {erro})")
 
 def ver_necessidades(cursor):
 
-    # Necessidades publicadas pelas instituições que ainda não foram finalizadas
+
     cursor.execute(
         "SELECT P.CD_PUBLICACAO, O.NM_FANTASIA, P.NM_TITULO, P.DS_DESCRICAO, N.DT_LIMITE, P.ST_PUBLICACAO "
         "FROM ALIM_TB_PUBLICACAO P "
@@ -640,7 +640,7 @@ def ver_necessidades(cursor):
             print(f"Prazo: {necessidade[4].strftime('%d/%m/%Y')}")
         print(f"Status: {necessidade[5]}")
 
-        # Alimentos que a instituição precisa
+
         cursor.execute(
             "SELECT A.NM_ALIMENTO, I.QT_DESEJADA_KG "
             "FROM ALIM_TB_ITEM_NECESSIDADE I "
@@ -658,8 +658,8 @@ def ver_necessidades(cursor):
 
 def ler_itens_oferta(cursor):
 
-    # Mostra o catálogo de alimentos e pede os itens da oferta.
-    # Devolve uma lista de dicionários (um por alimento), ou lista vazia se não der para continuar
+
+
     cursor.execute(
         "SELECT CD_ALIMENTO, NM_ALIMENTO FROM ALIM_TB_ALIMENTO ORDER BY NM_ALIMENTO"
     )
@@ -737,7 +737,7 @@ def ler_itens_oferta(cursor):
 
 def publicar_oferta(cursor, conexao, estab):
 
-    # RN04 e RN12: só estabelecimento aprovado publica oferta
+    # Somente estabelecimentos aprovados podem publicar ofertas.
     if estab["st_cadastro"] != "APROVADO":
         print(
             "\n"
@@ -769,7 +769,7 @@ def publicar_oferta(cursor, conexao, estab):
             print("Oferta cancelada: nenhum alimento foi informado.")
             return
 
-        # RN19: o estabelecimento precisa aceitar os termos antes de publicar
+        # Confirma os termos antes de cadastrar a oferta.
         print("\n=== TERMOS DE RESPONSABILIDADE ===")
         print("- As informações da oferta são verdadeiras")
         print("- Os alimentos estão em condições adequadas de conservação")
@@ -783,7 +783,7 @@ def publicar_oferta(cursor, conexao, estab):
             )
             return
 
-        # Status (DISPONIVEL) e data de publicação ficam de fora: o banco usa o valor padrão
+
         cursor.execute(
             "INSERT INTO ALIM_TB_PUBLICACAO (CD_ORGANIZACAO, NM_TITULO, DS_DESCRICAO) "
             "VALUES (:org, :titulo, :descricao)",
@@ -794,7 +794,7 @@ def publicar_oferta(cursor, conexao, estab):
             },
         )
 
-        # O código da publicação é gerado pelo banco: pegamos o maior código desta organização
+
         cursor.execute(
             "SELECT MAX(CD_PUBLICACAO) FROM ALIM_TB_PUBLICACAO WHERE CD_ORGANIZACAO = :org",
             {"org": estab["cd_organizacao"]},
@@ -822,14 +822,14 @@ def publicar_oferta(cursor, conexao, estab):
                 },
             )
 
-        # Um commit só no final: a oferta e todos os itens valem juntos ou nenhum vale
+        # Salva a oferta junto com todos os alimentos.
         conexao.commit()
         print(f"\nOferta publicada com sucesso! Código da publicação: {cd_publicacao}")
 
     except orcl.Error as erro:
         conexao.rollback()
         print("Não foi possível publicar a oferta. Tente novamente!")
-        print(f"(Detalhe técnico: {erro})")  # pode remover antes da apresentação
+        print(f"(Detalhe técnico: {erro})")
 
 def deletar_publicacao(cursor, conexao, estab):
 
@@ -845,7 +845,7 @@ def deletar_publicacao(cursor, conexao, estab):
         return
 
     try:
-        # O filtro por CD_ORGANIZACAO impede deletar publicação de outro estabelecimento
+        # Garante que a publicação pertence ao estabelecimento.
         cursor.execute(
             "SELECT ST_PUBLICACAO FROM ALIM_TB_PUBLICACAO "
             "WHERE CD_PUBLICACAO = :cd AND CD_ORGANIZACAO = :org",
@@ -856,10 +856,10 @@ def deletar_publicacao(cursor, conexao, estab):
         if publicacao is None:
             print("Publicação não encontrada!")
         elif publicacao[0] != "DISPONIVEL":
-            # RN41: só publicações DISPONIVEL podem ser deletadas
+
             print("Só é possível deletar publicações com status DISPONIVEL!")
         else:
-            # Se já recebeu solicitação, deletar apagaria o histórico (RN40)
+            # Mantém o histórico de ofertas que já receberam solicitações.
             cursor.execute(
                 "SELECT COUNT(*) FROM ALIM_TB_SOLICITACAO WHERE CD_OFERTA = :cd",
                 {"cd": cd_publicacao},
@@ -873,7 +873,7 @@ def deletar_publicacao(cursor, conexao, estab):
                     "Tem certeza que deseja deletar esta publicação? (1 - Sim / 2 - Não): "
                 )
                 if confirmar == 1:
-                    # Apaga primeiro as tabelas que dependem da publicação
+                    # Remove os itens vinculados antes de excluir a publicação.
                     cursor.execute(
                         "DELETE FROM ALIM_TB_ITEM_OFERTA WHERE CD_PUBLICACAO = :cd",
                         {"cd": cd_publicacao},
@@ -942,7 +942,7 @@ def analisar_cad_pendentes(cursor, conexao):
 
         resposta = ler_opcao("Escolha uma opção: ")
 
-        # APROVAR CADASTRO
+
         if resposta == 1:
 
             try:
@@ -970,7 +970,7 @@ def analisar_cad_pendentes(cursor, conexao):
                 conexao.rollback()
                 print(f"Erro ao aprovar cadastro: {erro}")
 
-        # REPROVAR CADASTRO
+
         elif resposta == 2:
 
             try:
@@ -1275,7 +1275,7 @@ def main():
                 print("Erro ao acessar o banco de dados. Tente novamente!")
                 print(f"(Detalhe técnico: {erro})")
 
-        # Fecha a conexão ao sair do programa
+
         cursor.close()
         conexao.close()
     else:
@@ -1342,7 +1342,7 @@ def menu_estab(cursor, conexao, estab):
 
 def inativar_organizacao(cursor, conexao, adm):
     limpar_tela()
-    # Lista exibida para inativação: ordenada por CD_ORGANIZACAO ASC
+
     cursor.execute("""
         SELECT CD_ORGANIZACAO, NM_FANTASIA, TP_ORGANIZACAO, ST_CONTA
         FROM ALIM_TB_ORGANIZACAO
@@ -1384,8 +1384,8 @@ def inativar_organizacao(cursor, conexao, adm):
             print("Esta organização já está inativa!")
             return
 
-        # Impede a inativação enquanto houver solicitação em andamento,
-        # seja a organização o estabelecimento ou a instituição.
+        # Bloqueia a inativação se houver solicitação em andamento.
+
         cursor.execute(
             "SELECT COUNT(*) FROM ALIM_TB_SOLICITACAO S "
             "LEFT JOIN ALIM_TB_PUBLICACAO P ON P.CD_PUBLICACAO = S.CD_OFERTA "
@@ -1430,7 +1430,7 @@ def inativar_organizacao(cursor, conexao, adm):
         print("Erro ao inativar organização:", erro)
 
 def listar_alimentos(cursor, ordenar_por_codigo=False):
-    # Por nome alfabético para visualização; por código crescente para alteração/seleção
+
     ordem = "CD_ALIMENTO ASC" if ordenar_por_codigo else "NM_ALIMENTO ASC"
     cursor.execute(f"""
         SELECT CD_ALIMENTO, NM_ALIMENTO, TP_CLASSIFICACAO
@@ -1485,7 +1485,7 @@ def cadastrar_alimento(cursor, conexao):
 
 def alterar_alimento(cursor, conexao):
     limpar_tela()
-    # Lista exibida para escolha do código a alterar: ordenada por CD_ALIMENTO ASC
+
     listar_alimentos(cursor, ordenar_por_codigo=True)
     cd_alimento = ler_opcao("\nCódigo do alimento que deseja alterar (0 para voltar): ")
     if cd_alimento == 0:
@@ -1643,7 +1643,7 @@ def ver_ofertas_disponiveis(cursor, ordenar_por_codigo=False):
     return codigos_exibidos
 
 def solicitar_oferta(cursor, conexao, inst):
-    # Ordena por código crescente para a instituição digitar o código da oferta desejada
+
     ofertas = ver_ofertas_disponiveis(cursor, ordenar_por_codigo=True)
     if not ofertas:
         return
@@ -1734,7 +1734,7 @@ def solicitar_oferta(cursor, conexao, inst):
 
 def minhas_solicitacoes(cursor, conexao, inst):
     limpar_tela()
-    # Ordena por código crescente para facilitar o cancelamento por código
+
     cursor.execute(
         """
         SELECT S.CD_SOLICITACAO, S.CD_OFERTA, P.NM_TITULO,
@@ -1886,7 +1886,7 @@ def publicar_necessidade(cursor, conexao, inst):
             print("Data inválida. Use dd/mm/aaaa.")
             return
 
-    # Lista exibida para seleção de código na inserção: ordenada por CD_ALIMENTO ASC
+
     cursor.execute(
         "SELECT CD_ALIMENTO, NM_ALIMENTO FROM ALIM_TB_ALIMENTO ORDER BY CD_ALIMENTO ASC"
     )
@@ -1976,7 +1976,7 @@ def publicar_necessidade(cursor, conexao, inst):
 
 def minhas_necessidades(cursor, conexao, inst):
     limpar_tela()
-    # Ordena por código crescente pois permite exclusão pelo código
+
     cursor.execute(
         """
         SELECT P.CD_PUBLICACAO, P.NM_TITULO, P.DS_DESCRICAO,
@@ -2079,7 +2079,7 @@ def minhas_necessidades(cursor, conexao, inst):
 
 def pesquisar_estabelecimentos(cursor):
     limpar_tela()
-    # Apenas exibição: ordenado alfabeticamente pelo nome fantasia
+
     cursor.execute("""
         SELECT NM_FANTASIA, NR_CNPJ, DS_EMAIL_CONTATO,
                NR_TELEFONE, DS_ENDERECO
@@ -2107,7 +2107,7 @@ def pesquisar_estabelecimentos(cursor):
 
 def confirmar_recebimento(cursor, conexao, inst):
     limpar_tela()
-    # Lista exibida para seleção de código: ordenada por CD_SOLICITACAO ASC
+
     cursor.execute(
         """
         SELECT S.CD_SOLICITACAO, S.CD_OFERTA, P.NM_TITULO,
